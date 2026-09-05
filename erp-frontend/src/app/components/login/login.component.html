@@ -1,0 +1,37 @@
+<div class="login-wrapper">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo-badge">🚀</div>
+      <h2>ERP AI Enterprise</h2>
+      <p>Sign in to access your supply chain & ERP portal</p>
+    </div>
+
+    <form (ngSubmit)="onLogin()" class="login-form">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" [(ngModel)]="username" name="username" required class="form-control" placeholder="e.g. AdminUser">
+      </div>
+
+      <div class="form-group">
+        <label>Enterprise Role</label>
+        <select [(ngModel)]="role" name="role" required class="form-control">
+          <option value="Admin">Admin (Full System Access)</option>
+          <option value="Procurement">Procurement (Create POs & Suppliers)</option>
+          <option value="Manager">Manager (Approve / Reject Orders)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-login" [disabled]="loading">
+        {{ loading ? 'Authenticating...' : 'Sign In to Portal' }}
+      </button>
+
+      <div *ngIf="error" class="error-banner">
+        ⚠️ {{ error }}
+      </div>
+    </form>
+
+    <div class="login-footer">
+      <p>Secure JWT Authentication Enabled</p>
+    </div>
+  </div>
+</div>

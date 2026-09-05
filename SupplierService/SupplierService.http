@@ -1,0 +1,24 @@
+@SupplierService_HostAddress = http://localhost:5046
+
+GET {{SupplierService_HostAddress}}/api/suppliers
+Accept: application/json
+
+###
+
+POST {{SupplierService_HostAddress}}/api/suppliers
+Content-Type: application/json
+
+{
+  "supplierCode": "SUP-001",
+  "name": "Global Tech Distributors",
+  "email": "contact@globaltech.com",
+  "phone": "+1-555-0199",
+  "address": "100 Innovation Way, Suite 400, Tech Park, CA"
+}
+
+###
+
+GET {{SupplierService_HostAddress}}/api/suppliers/code/SUP-001
+Accept: application/json
+
+###

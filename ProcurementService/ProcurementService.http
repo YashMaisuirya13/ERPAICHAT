@@ -1,0 +1,52 @@
+@ProcurementService_HostAddress = http://localhost:5047
+
+GET {{ProcurementService_HostAddress}}/api/purchaseorders
+Accept: application/json
+
+###
+
+POST {{ProcurementService_HostAddress}}/api/purchaseorders
+Content-Type: application/json
+
+{
+  "supplierGuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "items": [
+    {
+      "productGuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "quantity": 20,
+      "unitPrice": 450.00
+    },
+    {
+      "productGuid": "3fa85f64-5717-4562-b3fc-2c963f66afa7",
+      "quantity": 10,
+      "unitPrice": 150.00
+    }
+  ]
+}
+
+### 1. Submit PO for Manager Approval (Draft -> PendingApproval)
+POST {{ProcurementService_HostAddress}}/api/purchaseorders/3fa85f64-5717-4562-b3fc-2c963f66afa6/submit
+Accept: application/json
+
+### 2. Approve PO (Human Manager Approval: PendingApproval -> Approved)
+POST {{ProcurementService_HostAddress}}/api/purchaseorders/3fa85f64-5717-4562-b3fc-2c963f66afa6/approve
+Accept: application/json
+
+### 3. Reject PO (Manager Rejection: PendingApproval -> Rejected)
+POST {{ProcurementService_HostAddress}}/api/purchaseorders/3fa85f64-5717-4562-b3fc-2c963f66afa6/reject
+Content-Type: application/json
+
+{
+  "reason": "Budget threshold exceeded for this quarter."
+}
+
+### 4. Send PO to Supplier (Approved -> Sent)
+POST {{ProcurementService_HostAddress}}/api/purchaseorders/3fa85f64-5717-4562-b3fc-2c963f66afa6/send
+Accept: application/json
+
+### 5. Receive Goods (Sent -> Received)
+POST {{ProcurementService_HostAddress}}/api/purchaseorders/3fa85f64-5717-4562-b3fc-2c963f66afa6/receive
+Accept: application/json
+
+###
+

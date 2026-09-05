@@ -1,0 +1,181 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Yash\\STUFF\\ERPAICHAT\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|c:\\yash\\stuff\\erpaichat\\shared.events\\middleware\\requestloggingmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|solutionrelative:shared.events\\middleware\\requestloggingmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|c:\\yash\\stuff\\erpaichat\\shared.events\\middleware\\correlationidmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|solutionrelative:shared.events\\middleware\\correlationidmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|c:\\yash\\stuff\\erpaichat\\shared.events\\middleware\\exceptionhandlingmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|solutionrelative:shared.events\\middleware\\exceptionhandlingmiddleware.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|c:\\yash\\stuff\\erpaichat\\shared.events\\models\\poitemdto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{35EAD7FA-FC82-EA18-6015-E8840C341944}|Shared.Events\\Shared.Events.csproj|solutionrelative:shared.events\\models\\poitemdto.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ABE66B30-BD47-A7B2-B17B-5BA67959B026}|ApiGateway\\ApiGateway.csproj|c:\\yash\\stuff\\erpaichat\\apigateway\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{ABE66B30-BD47-A7B2-B17B-5BA67959B026}|ApiGateway\\ApiGateway.csproj|solutionrelative:apigateway\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{ABE66B30-BD47-A7B2-B17B-5BA67959B026}|ApiGateway\\ApiGateway.csproj|c:\\yash\\stuff\\erpaichat\\apigateway\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{ABE66B30-BD47-A7B2-B17B-5BA67959B026}|ApiGateway\\ApiGateway.csproj|solutionrelative:apigateway\\properties\\launchsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Yash\\STUFF\\ERPAICHAT\\SupplierService\\Migrations\\20260904061724_InitialProcurement.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SupplierService\\Migrations\\20260904061724_InitialProcurement.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Yash\\STUFF\\ERPAICHAT\\SupplierService\\Migrations\\20260904061611_InitialSupplier.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:SupplierService\\Migrations\\20260904061611_InitialSupplier.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{740CF2DB-E971-1F09-2327-17C3622225F5}|ProcurementService\\ProcurementService.csproj|c:\\yash\\stuff\\erpaichat\\procurementservice\\controllers\\purchaseorderscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{740CF2DB-E971-1F09-2327-17C3622225F5}|ProcurementService\\ProcurementService.csproj|solutionrelative:procurementservice\\controllers\\purchaseorderscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 5,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "CorrelationIdMiddleware.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Middleware\\CorrelationIdMiddleware.cs",
+              "RelativeDocumentMoniker": "Shared.Events\\Middleware\\CorrelationIdMiddleware.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Middleware\\CorrelationIdMiddleware.cs",
+              "RelativeToolTip": "Shared.Events\\Middleware\\CorrelationIdMiddleware.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:57:59.178Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "ExceptionHandlingMiddleware.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Middleware\\ExceptionHandlingMiddleware.cs",
+              "RelativeDocumentMoniker": "Shared.Events\\Middleware\\ExceptionHandlingMiddleware.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Middleware\\ExceptionHandlingMiddleware.cs",
+              "RelativeToolTip": "Shared.Events\\Middleware\\ExceptionHandlingMiddleware.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:57:55.886Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "RequestLoggingMiddleware.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Middleware\\RequestLoggingMiddleware.cs",
+              "RelativeDocumentMoniker": "Shared.Events\\Middleware\\RequestLoggingMiddleware.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Middleware\\RequestLoggingMiddleware.cs",
+              "RelativeToolTip": "Shared.Events\\Middleware\\RequestLoggingMiddleware.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAABgAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:57:45.285Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "POItemDto.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Models\\POItemDto.cs",
+              "RelativeDocumentMoniker": "Shared.Events\\Models\\POItemDto.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\Shared.Events\\Models\\POItemDto.cs",
+              "RelativeToolTip": "Shared.Events\\Models\\POItemDto.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:33:34.692Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "launchSettings.json",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\ApiGateway\\Properties\\launchSettings.json",
+              "RelativeDocumentMoniker": "ApiGateway\\Properties\\launchSettings.json",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\ApiGateway\\Properties\\launchSettings.json",
+              "RelativeToolTip": "ApiGateway\\Properties\\launchSettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-09-04T06:22:37.255Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\ApiGateway\\Program.cs",
+              "RelativeDocumentMoniker": "ApiGateway\\Program.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\ApiGateway\\Program.cs",
+              "RelativeToolTip": "ApiGateway\\Program.cs",
+              "ViewState": "AgIAABoAAAAAAAAAAAAAADEAAAAUAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:18:30.323Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "20260904061724_InitialProcurement.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\SupplierService\\Migrations\\20260904061724_InitialProcurement.cs",
+              "RelativeDocumentMoniker": "SupplierService\\Migrations\\20260904061724_InitialProcurement.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\SupplierService\\Migrations\\20260904061724_InitialProcurement.cs",
+              "RelativeToolTip": "SupplierService\\Migrations\\20260904061724_InitialProcurement.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:17:24.864Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "20260904061611_InitialSupplier.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\SupplierService\\Migrations\\20260904061611_InitialSupplier.cs",
+              "RelativeDocumentMoniker": "SupplierService\\Migrations\\20260904061611_InitialSupplier.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\SupplierService\\Migrations\\20260904061611_InitialSupplier.cs",
+              "RelativeToolTip": "SupplierService\\Migrations\\20260904061611_InitialSupplier.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:16:11.584Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "PurchaseOrdersController.cs",
+              "DocumentMoniker": "C:\\Yash\\STUFF\\ERPAICHAT\\ProcurementService\\Controllers\\PurchaseOrdersController.cs",
+              "RelativeDocumentMoniker": "ProcurementService\\Controllers\\PurchaseOrdersController.cs",
+              "ToolTip": "C:\\Yash\\STUFF\\ERPAICHAT\\ProcurementService\\Controllers\\PurchaseOrdersController.cs",
+              "RelativeToolTip": "ProcurementService\\Controllers\\PurchaseOrdersController.cs",
+              "ViewState": "AgIAAEwAAAAAAAAAAAAmwMMAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-09-04T06:10:54.355Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

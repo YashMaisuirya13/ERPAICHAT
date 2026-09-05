@@ -1,0 +1,33 @@
+.page-container { padding: 2.5rem; max-width: 1400px; margin: 0 auto; }
+.page-header { margin-bottom: 2rem; }
+.page-header h2 { font-size: 1.75rem; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem; }
+.page-header p { color: #64748b; font-size: 1rem; }
+
+.card { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0; margin-bottom: 2rem; }
+.card h3 { font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-bottom: 1.25rem; }
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto; gap: 1.25rem; align-items: flex-end; }
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-group.full-width { grid-column: 1 / -1; }
+.form-group label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+.form-control { padding: 0.75rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; background: #f8fafc; color: #1e293b; transition: all 0.2s; }
+.form-control:focus { outline: none; border-color: #3b82f6; background: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+.btn { padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; border: none; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; height: 44px; white-space: nowrap; }
+.btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.45); }
+
+.table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.count-badge { background: #f1f5f9; color: #475569; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; }
+
+.table-responsive { width: 100%; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; text-align: left; }
+.table th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem; border-bottom: 2px solid #e2e8f0; }
+.table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 0.925rem; }
+.table tr:hover td { background: #f8fafc; }
+
+.id-tag { font-family: monospace; font-size: 0.8rem; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px; color: #64748b; }
+.sku-tag { font-family: monospace; background: #f1f5f9; color: #0f172a; padding: 0.2rem 0.5rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; }
+.price-badge { font-weight: 700; color: #059669; background: #ecfdf5; padding: 0.25rem 0.6rem; border-radius: 6px; }
+.stock-badge { font-weight: 600; color: #2563eb; background: #eff6ff; padding: 0.25rem 0.6rem; border-radius: 6px; }
+.empty-row { text-align: center; color: #94a3b8; padding: 2rem !important; }

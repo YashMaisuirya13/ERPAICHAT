@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ERPAICHAT/InventoryService.csproj" />
+  <Project Path="SupplierService/SupplierService.csproj" />
+  <Project Path="ProcurementService/ProcurementService.csproj" />
+  <Project Path="ApiGateway/ApiGateway.csproj" />
+  <Project Path="Shared.Events/Shared.Events.csproj" />
+</Solution>

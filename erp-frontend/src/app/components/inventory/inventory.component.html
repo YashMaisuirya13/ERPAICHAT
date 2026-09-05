@@ -1,0 +1,74 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h2>Inventory & Warehouse Management 🏭</h2>
+      <p>Monitor real-time stock availability, reorder levels, and stock movements.</p>
+    </div>
+  </div>
+
+  <div class="card form-card mb-4">
+    <h3>Stock In / Stock Out Adjustment</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Select Product</label>
+        <select [(ngModel)]="stockForm.productId" name="productId" class="form-control">
+          <option *ngFor="let p of products" [value]="p.productId || p.id">
+            {{ p.name }} (SKU: {{ p.sku || p.SKU }})
+          </option>
+          <option *ngIf="products.length === 0" [value]="1">Default Product #1</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" [(ngModel)]="stockForm.quantity" placeholder="Quantity amount" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Reference / PO</label>
+        <input type="text" [(ngModel)]="stockForm.reference" placeholder="e.g. PO-101 or Audit" class="form-control">
+      </div>
+      <div class="form-actions">
+        <button (click)="doStockIn()" class="btn btn-success">
+          <span>📥</span> Stock In
+        </button>
+        <button (click)="doStockOut()" class="btn btn-danger">
+          <span>📤</span> Stock Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-header">
+      <h3>Current Inventory Levels</h3>
+      <span class="count-badge">{{ inventory.length }} Warehoused Items</span>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Quantity Available</th>
+            <th>Reorder Threshold</th>
+            <th>Stock Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of inventory">
+            <td><span class="id-tag">#{{ item.productId }}</span></td>
+            <td><strong class="qty-num">{{ item.quantityAvailable }}</strong> units</td>
+            <td>{{ item.reorderLevel }} units</td>
+            <td>
+              <span class="status-badge" [class.danger]="item.quantityAvailable <= item.reorderLevel" [class.success]="item.quantityAvailable > item.reorderLevel">
+                {{ item.quantityAvailable <= item.reorderLevel ? '⚠️ Low Stock' : '✅ Healthy' }}
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="inventory.length === 0">
+            <td colspan="4" class="empty-row">No inventory records found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

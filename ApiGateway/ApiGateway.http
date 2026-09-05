@@ -1,0 +1,21 @@
+@ApiGateway_HostAddress = http://localhost:5000
+
+### Gateway Health
+GET {{ApiGateway_HostAddress}}/
+Accept: application/json
+
+### Route to InventoryService - Get Products
+GET {{ApiGateway_HostAddress}}/api/products
+Accept: application/json
+
+### Route to InventoryService - Get Inventory
+GET {{ApiGateway_HostAddress}}/api/inventory
+Accept: application/json
+
+### Route to SupplierService - Get Suppliers
+GET {{ApiGateway_HostAddress}}/api/suppliers
+Accept: application/json
+
+### Route to ProcurementService - Get Purchase Orders
+GET {{ApiGateway_HostAddress}}/api/purchaseorders
+Accept: application/json

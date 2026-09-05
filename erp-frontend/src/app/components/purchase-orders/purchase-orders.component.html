@@ -1,0 +1,100 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h2>Purchase Orders 📋</h2>
+      <p>Create, submit, approve, and receive purchase orders across the supply chain workflow.</p>
+    </div>
+    <div class="role-badge-container">
+      <span>Current Role:</span> <strong>{{ userRole }}</strong>
+    </div>
+  </div>
+
+  <div class="card form-card mb-4" *ngIf="userRole === 'Procurement' || userRole === 'Admin'">
+    <h3>Create New Purchase Order</h3>
+    <form (ngSubmit)="createPO()" class="form-grid">
+      <div class="form-group">
+        <label>Select Supplier</label>
+        <select [(ngModel)]="newPo.supplierId" name="supplierId" class="form-control" required>
+          <option *ngFor="let s of suppliers" [value]="s.supplierGuid || s.id">
+            {{ s.name }} (Code: {{ s.code }})
+          </option>
+          <option *ngIf="suppliers.length === 0" [value]="1">Default Supplier #1</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Select Product</label>
+        <select [(ngModel)]="newItem.productId" name="productId" class="form-control" required>
+          <option *ngFor="let p of products" [value]="p.productId || p.id">
+            {{ p.name }} (SKU: {{ p.sku || p.SKU }})
+          </option>
+          <option *ngIf="products.length === 0" [value]="1">Default Product #1</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" [(ngModel)]="newItem.quantity" name="quantity" placeholder="50" required class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Unit Price ($)</label>
+        <input type="number" step="0.01" [(ngModel)]="newItem.unitPrice" name="unitPrice" placeholder="10.00" required class="form-control">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <span>➕</span> Create PO
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-header">
+      <h3>Purchase Orders Directory</h3>
+      <span class="count-badge">{{ purchaseOrders.length }} Orders</span>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>PO ID</th>
+            <th>Supplier</th>
+            <th>Status</th>
+            <th>Total Amount</th>
+            <th>Workflow Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let po of purchaseOrders">
+            <td><span class="id-tag">{{ po.purchaseOrderGuid || po.id }}</span></td>
+            <td><strong>{{ po.supplierName || ('Supplier #' + po.supplierId) }}</strong></td>
+            <td>
+              <span class="status-badge" [class]="'status-' + (po.status | lowercase)">
+                {{ po.status }}
+              </span>
+            </td>
+            <td><span class="amount-text">$ {{ po.totalAmount | number:'1.2-2' }}</span></td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-action btn-submit" *ngIf="po.status === 'Draft' && (userRole === 'Procurement' || userRole === 'Admin')" (click)="submit(po.purchaseOrderGuid || po.id)">
+                  📤 Submit
+                </button>
+                <button class="btn-action btn-approve" *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" (click)="approve(po.purchaseOrderGuid || po.id)">
+                  ✅ Approve
+                </button>
+                <button class="btn-action btn-reject" *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" (click)="reject(po.purchaseOrderGuid || po.id)">
+                  ❌ Reject
+                </button>
+                <button class="btn-action btn-receive" *ngIf="po.status === 'Approved'" (click)="receive(po.purchaseOrderGuid || po.id)">
+                  📦 Receive Stock
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="purchaseOrders.length === 0">
+            <td colspan="5" class="empty-row">No purchase orders found in the system.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,43 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h2>AI Assistant Copilot 🤖</h2>
+      <p>Intelligent agent powered by LLM tools for inventory audit, supplier queries, and purchase order insights.</p>
+    </div>
+  </div>
+
+  <div class="chat-wrapper">
+    <div class="chat-card">
+      <div class="chat-header">
+        <div class="ai-status">
+          <span class="ai-avatar">🤖</span>
+          <div>
+            <h4>ERP AI Copilot</h4>
+            <span class="status-online">Online & Connected to ERP Services</span>
+          </div>
+        </div>
+        <div class="quick-prompts">
+          <button class="prompt-pill" (click)="sendPreset('Check low stock items')">⚠️ Check Low Stock</button>
+          <button class="prompt-pill" (click)="sendPreset('List pending purchase orders')">📋 Pending POs</button>
+          <button class="prompt-pill" (click)="sendPreset('Show active suppliers')">🤝 Active Suppliers</button>
+        </div>
+      </div>
+
+      <div class="chat-messages" #scrollContainer>
+        <div class="message-row" *ngFor="let msg of messages" [class.user-row]="msg.sender === 'user'" [class.ai-row]="msg.sender === 'ai'">
+          <div class="message-bubble" [class.user]="msg.sender === 'user'" [class.ai]="msg.sender === 'ai'">
+            <div class="msg-sender">{{ msg.sender === 'user' ? 'You' : 'AI Copilot' }}</div>
+            <div class="msg-text">{{ msg.text }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <input type="text" [(ngModel)]="currentInput" (keyup.enter)="sendMessage()" placeholder="Ask AI about inventory stock, supplier contacts, or purchase orders..." class="form-control">
+        <button (click)="sendMessage()" class="btn btn-send">
+          <span>Send</span> 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

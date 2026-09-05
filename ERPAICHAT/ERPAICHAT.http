@@ -1,0 +1,65 @@
+@ERPAICHAT_HostAddress = http://localhost:5045
+
+GET {{ERPAICHAT_HostAddress}}/api/products
+Accept: application/json
+
+###
+
+POST {{ERPAICHAT_HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "sku": "PROD-001",
+  "name": "Sample Product",
+  "unitPrice": 19.99,
+  "minimumStock": 5
+}
+
+###
+
+GET {{ERPAICHAT_HostAddress}}/api/inventory
+Accept: application/json
+
+###
+
+GET {{ERPAICHAT_HostAddress}}/api/inventory/low-stock
+Accept: application/json
+
+###
+
+GET {{ERPAICHAT_HostAddress}}/api/inventory/transactions
+Accept: application/json
+
+###
+
+GET {{ERPAICHAT_HostAddress}}/api/inventory/transactions/product/1
+Accept: application/json
+
+###
+
+GET {{ERPAICHAT_HostAddress}}/api/products/1/inventory
+Accept: application/json
+
+###
+
+POST {{ERPAICHAT_HostAddress}}/api/inventory/stock-in
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 100,
+  "warehouseCode": "WH-A"
+}
+
+###
+
+POST {{ERPAICHAT_HostAddress}}/api/inventory/stock-out
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 20,
+  "warehouseCode": "WH-A"
+}
+
+###

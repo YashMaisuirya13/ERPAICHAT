@@ -1,0 +1,68 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h2>Products Catalog 📦</h2>
+      <p>Manage product inventory items, SKUs, pricing, and minimum stock thresholds.</p>
+    </div>
+  </div>
+
+  <div class="card form-card mb-4">
+    <h3>Add New Product</h3>
+    <form (ngSubmit)="createProduct()" class="form-grid">
+      <div class="form-group">
+        <label>Product Name</label>
+        <input type="text" [(ngModel)]="newProduct.name" name="name" placeholder="e.g. Industrial Widget" required class="form-control">
+      </div>
+      <div class="form-group">
+        <label>SKU Code</label>
+        <input type="text" [(ngModel)]="newProduct.sku" name="sku" placeholder="e.g. WDG-8821" required class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Unit Price ($)</label>
+        <input type="number" step="0.01" [(ngModel)]="newProduct.unitPrice" name="unitPrice" placeholder="0.00" required class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Minimum Stock Level</label>
+        <input type="number" [(ngModel)]="newProduct.minimumStock" name="minimumStock" placeholder="10" required class="form-control">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          <span>➕</span> Create Product
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-header">
+      <h3>Product Catalog Items</h3>
+      <span class="count-badge">{{ products.length }} Items</span>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>SKU</th>
+            <th>Unit Price</th>
+            <th>Minimum Stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of products">
+            <td><span class="id-tag">{{ p.productId || p.id || p.productGuid }}</span></td>
+            <td><strong>{{ p.name }}</strong></td>
+            <td><span class="sku-tag">{{ p.sku || p.SKU }}</span></td>
+            <td><span class="price-badge">$ {{ (p.unitPrice !== undefined ? p.unitPrice : p.UnitPrice) | number:'1.2-2' }}</span></td>
+            <td><span class="stock-badge">{{ p.minimumStock !== undefined ? p.minimumStock : p.MinimumStock }} units</span></td>
+          </tr>
+          <tr *ngIf="products.length === 0">
+            <td colspan="5" class="empty-row">No products found in the catalog.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
