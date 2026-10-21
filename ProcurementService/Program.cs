@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using ProcurementService.Clients;
 using ProcurementService.Clients.Interfaces;
 using ProcurementService.Data;

@@ -1,43 +1,159 @@
 <div class="page-container">
+  <!-- Header Section -->
   <div class="page-header">
-    <div>
-      <h2>AI Assistant Copilot 🤖</h2>
-      <p>Intelligent agent powered by LLM tools for inventory audit, supplier queries, and purchase order insights.</p>
+    <div class="header-content">
+      <div class="title-with-badge">
+        <h2>ERP AI Assistant Copilot</h2>
+        <span class="provider-pill">
+          <span class="pulsing-dot"></span>
+          {{ activeProvider }}
+        </span>
+      </div>
+      <p class="subtitle">
+        Enterprise intelligence powered by LLM orchestration with live Inventory, Supplier, and Procurement microservice tools.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-clear" (click)="clearChat()" title="Reset Chat History">
+        <span class="icon">🗑️</span>
+        <span>Clear Chat</span>
+      </button>
     </div>
   </div>
 
+  <!-- Chat Main Area -->
   <div class="chat-wrapper">
     <div class="chat-card">
-      <div class="chat-header">
-        <div class="ai-status">
-          <span class="ai-avatar">🤖</span>
+      
+      <!-- Top Bar with Quick Prompts -->
+      <div class="chat-header-bar">
+        <div class="assistant-identity">
+          <div class="avatar-wrapper">
+            <span class="avatar-icon">🤖</span>
+            <span class="online-indicator"></span>
+          </div>
           <div>
-            <h4>ERP AI Copilot</h4>
-            <span class="status-online">Online & Connected to ERP Services</span>
+            <div class="assistant-name">ERP Copilot Agent</div>
+            <div class="assistant-meta">Live Connected • .NET 10 Microservices</div>
           </div>
         </div>
-        <div class="quick-prompts">
-          <button class="prompt-pill" (click)="sendPreset('Check low stock items')">⚠️ Check Low Stock</button>
-          <button class="prompt-pill" (click)="sendPreset('List pending purchase orders')">📋 Pending POs</button>
-          <button class="prompt-pill" (click)="sendPreset('Show active suppliers')">🤝 Active Suppliers</button>
+
+        <div class="quick-prompts-container">
+          <span class="prompts-label">Quick Actions:</span>
+          <div class="prompts-scroll">
+            <button 
+              *ngFor="let qp of quickPrompts" 
+              class="prompt-chip" 
+              [disabled]="isLoading"
+              (click)="sendPreset(qp.prompt)">
+              {{ qp.label }}
+            </button>
+          </div>
         </div>
       </div>
 
+      <!-- Messages Stream -->
       <div class="chat-messages" #scrollContainer>
-        <div class="message-row" *ngFor="let msg of messages" [class.user-row]="msg.sender === 'user'" [class.ai-row]="msg.sender === 'ai'">
-          <div class="message-bubble" [class.user]="msg.sender === 'user'" [class.ai]="msg.sender === 'ai'">
-            <div class="msg-sender">{{ msg.sender === 'user' ? 'You' : 'AI Copilot' }}</div>
-            <div class="msg-text">{{ msg.text }}</div>
+        <div 
+          *ngFor="let msg of messages" 
+          class="message-row" 
+          [class.user-row]="msg.sender === 'user'" 
+          [class.ai-row]="msg.sender === 'ai'">
+          
+          <!-- Avatar for AI -->
+          <div *ngIf="msg.sender === 'ai'" class="msg-avatar ai-avatar">
+            <span>🤖</span>
+          </div>
+
+          <!-- Bubble Content -->
+          <div class="message-bubble" [class.user]="msg.sender === 'user'" [class.ai]="msg.sender === 'ai'" [class.error-bubble]="msg.isError">
+            <div class="msg-top-bar">
+              <span class="msg-sender-name">{{ msg.sender === 'user' ? 'You' : 'ERP Copilot' }}</span>
+              <span *ngIf="msg.source" class="msg-source-tag">{{ msg.source }}</span>
+              <span class="msg-timestamp">{{ msg.timestamp | date:'shortTime' }}</span>
+            </div>
+
+            <!-- Message Body formatted with SafeHtml -->
+            <div class="msg-text-content" [innerHTML]="msg.formattedHtml"></div>
+
+            <!-- Tool Execution Badge -->
+            <div *ngIf="msg.toolCalled" class="tool-executed-card">
+              <span class="tool-icon">⚡</span>
+              <div class="tool-details">
+                <span class="tool-label">Automated ERP Action:</span>
+                <code class="tool-code">{{ msg.toolCalled }}</code>
+              </div>
+            </div>
+
+            <!-- Diagnostic Notice (if fallback occurred) -->
+            <div *ngIf="msg.diagnosticNotice" class="diagnostic-alert">
+              <span class="diag-icon">ℹ️</span>
+              <span class="diag-text">{{ msg.diagnosticNotice }}</span>
+            </div>
+
+            <!-- Structured Result Preview -->
+            <div *ngIf="msg.dataResult && (isArray(msg.dataResult) ? msg.dataResult.length > 0 : hasKeys(msg.dataResult))" class="result-details-box">
+              <details class="data-accordion">
+                <summary class="accordion-summary">
+                  <span>📊 View Live ERP System Payload</span>
+                </summary>
+                <pre class="json-preview">{{ msg.dataResult | json }}</pre>
+              </details>
+            </div>
+          </div>
+
+          <!-- Avatar for User -->
+          <div *ngIf="msg.sender === 'user'" class="msg-avatar user-avatar">
+            <span>👤</span>
+          </div>
+        </div>
+
+        <!-- Typing / Thinking State -->
+        <div *ngIf="isLoading" class="message-row ai-row typing-row">
+          <div class="msg-avatar ai-avatar pulsing">
+            <span>🤖</span>
+          </div>
+          <div class="message-bubble ai typing-bubble">
+            <div class="typing-status">
+              <span class="typing-spinner"></span>
+              <span>Thinking with <strong>{{ activeProvider }}</strong>...</span>
+            </div>
+            <div class="bouncing-dots">
+              <span class="dot dot1"></span>
+              <span class="dot dot2"></span>
+              <span class="dot dot3"></span>
+            </div>
           </div>
         </div>
       </div>
 
+      <!-- Chat Input Area -->
       <div class="chat-input-area">
-        <input type="text" [(ngModel)]="currentInput" (keyup.enter)="sendMessage()" placeholder="Ask AI about inventory stock, supplier contacts, or purchase orders..." class="form-control">
-        <button (click)="sendMessage()" class="btn btn-send">
-          <span>Send</span> 🚀
-        </button>
+        <div class="input-container">
+          <input 
+            type="text" 
+            [(ngModel)]="currentInput" 
+            (keyup.enter)="sendMessage()" 
+            [disabled]="isLoading"
+            placeholder="Ask about inventory stock, supplier orders, low stock items, or type a request..." 
+            class="chat-input"
+            autofocus>
+          
+          <button 
+            (click)="sendMessage()" 
+            [disabled]="!currentInput.trim() || isLoading" 
+            class="btn-send"
+            [class.disabled-btn]="!currentInput.trim() || isLoading">
+            <span *ngIf="!isLoading">Send</span>
+            <span *ngIf="!isLoading" class="send-icon">🚀</span>
+            <span *ngIf="isLoading" class="send-spinner"></span>
+          </button>
+        </div>
+        <div class="input-helper">
+          <span>💡 Press <kbd>Enter</kbd> to send • Direct integration with Inventory, Suppliers & Procurement APIs</span>
+        </div>
       </div>
+
     </div>
   </div>
 </div>

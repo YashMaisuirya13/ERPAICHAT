@@ -1,72 +1,331 @@
 <div class="page-container">
+  
+  <!-- Floating Toast Notification -->
+  <div *ngIf="notification" class="toast-notification" [class.toast-error]="notification.type === 'error'">
+    <span class="toast-icon">{{ notification.type === 'success' ? '✅' : '⚠️' }}</span>
+    <span>{{ notification.message }}</span>
+  </div>
+
+  <!-- Page Header -->
   <div class="page-header">
-    <div>
-      <h2>Supplier Management 🤝</h2>
-      <p>Manage vendors, supply chain contacts, and procurement partners.</p>
+    <div class="header-info">
+      <div class="title-row">
+        <h2>Supplier Management</h2>
+        <span class="supplier-badge">🤝 {{ totalSuppliersCount }} Verified Vendors</span>
+      </div>
+      <p class="subtitle">
+        Maintain vendor master records, procurement contacts, and direct purchase order connections.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-refresh" (click)="loadSuppliers()" [disabled]="isLoading" title="Refresh Suppliers">
+        <span [class.spinning]="isLoading">🔄</span>
+        <span>Refresh</span>
+      </button>
+      <button class="btn-primary" (click)="openCreateModal()">
+        <span>➕</span>
+        <span>Register Supplier</span>
+      </button>
     </div>
   </div>
 
-  <div class="card form-card mb-4">
-    <h3>Add New Supplier</h3>
-    <form (ngSubmit)="createSupplier()" class="form-grid">
-      <div class="form-group">
-        <label>Supplier Name</label>
-        <input type="text" [(ngModel)]="newSupplier.name" name="name" placeholder="e.g. Acme Corporation" required class="form-control">
+  <!-- KPI Metrics Row -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon-box bg-blue">
+        <span>🤝</span>
       </div>
-      <div class="form-group">
-        <label>Supplier Code</label>
-        <input type="text" [(ngModel)]="newSupplier.supplierCode" name="supplierCode" placeholder="e.g. SUP-001" required class="form-control">
+      <div class="stat-data">
+        <span class="stat-label">Total Suppliers</span>
+        <h3 class="stat-value">{{ totalSuppliersCount }}</h3>
+        <span class="stat-subtext">Active vendor registry</span>
       </div>
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" [(ngModel)]="newSupplier.email" name="email" placeholder="contact@supplier.com" class="form-control">
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-emerald">
+        <span>🛡️</span>
       </div>
-      <div class="form-group">
-        <label>Phone Number</label>
-        <input type="text" [(ngModel)]="newSupplier.phone" name="phone" placeholder="+1 (555) 019-2834" class="form-control">
+      <div class="stat-data">
+        <span class="stat-label">Verified Partners</span>
+        <h3 class="stat-value">{{ verifiedCount }}</h3>
+        <span class="stat-subtext">100% Compliance verified</span>
       </div>
-      <div class="form-group">
-        <label>Address</label>
-        <input type="text" [(ngModel)]="newSupplier.address" name="address" placeholder="123 Industrial Pkwy" class="form-control">
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-purple">
+        <span>⚡</span>
       </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          <span>➕</span> Register Supplier
+      <div class="stat-data">
+        <span class="stat-label">PO Dispatch Ready</span>
+        <h3 class="stat-value">{{ totalSuppliersCount }}</h3>
+        <span class="stat-subtext">Automated procurement ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Controls -->
+  <div class="controls-card">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (input)="onSearchChange()" 
+        placeholder="Search vendors by company name, supplier code, email, or phone..." 
+        class="search-input">
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; onSearchChange()" class="btn-clear-search">✕</button>
+    </div>
+
+    <div class="filter-actions">
+      <div class="sort-wrapper">
+        <label class="sort-label">Sort:</label>
+        <select [ngModel]="sortBy" (change)="onSortChange($event)" class="sort-select">
+          <option value="name-asc">Vendor Name (A → Z)</option>
+          <option value="name-desc">Vendor Name (Z → A)</option>
+          <option value="code-asc">Supplier Code (A → Z)</option>
+        </select>
+      </div>
+
+      <div class="view-toggles">
+        <button 
+          class="view-btn" 
+          [class.active]="viewMode === 'grid'" 
+          (click)="viewMode = 'grid'" 
+          title="Grid Cards View">
+          ⊞
+        </button>
+        <button 
+          class="view-btn" 
+          [class.active]="viewMode === 'table'" 
+          (click)="viewMode = 'table'" 
+          title="Dense Table View">
+          ☰
         </button>
       </div>
-    </form>
+    </div>
   </div>
 
-  <div class="card table-card">
-    <div class="table-header">
-      <h3>Registered Suppliers Directory</h3>
-      <span class="count-badge">{{ suppliers.length }} Total</span>
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading suppliers from Supplier Service...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredSuppliers.length === 0" class="empty-state-card">
+    <div class="empty-icon">🤝</div>
+    <h3>No Suppliers Found</h3>
+    <p *ngIf="searchTerm">No registered suppliers matched "<strong>{{ searchTerm }}</strong>".</p>
+    <p *ngIf="!searchTerm">Your supplier registry is currently empty.</p>
+    <div class="empty-actions">
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; applyFilters()" class="btn-secondary">
+        Reset Search
+      </button>
+      <button (click)="openCreateModal()" class="btn-primary">
+        <span>➕</span> Register First Supplier
+      </button>
     </div>
-    
+  </div>
+
+  <!-- GRID VIEW -->
+  <div *ngIf="!isLoading && viewMode === 'grid' && filteredSuppliers.length > 0" class="suppliers-grid">
+    <div *ngFor="let s of filteredSuppliers" class="supplier-card">
+      
+      <div class="card-top-row">
+        <div class="supplier-avatar" [style.background]="getSupplierAvatarColor(s.name)">
+          {{ s.name.charAt(0).toUpperCase() }}
+        </div>
+        <div class="supplier-header-meta">
+          <span class="status-pill">Active Partner</span>
+          <code class="code-badge" (click)="copyCode(s.supplierCode, $event)" title="Click to copy code">
+            {{ s.supplierCode }}
+            <span class="copy-icon">📋</span>
+          </code>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <h4 class="supplier-title">{{ s.name }}</h4>
+        
+        <div class="contact-rows">
+          <div class="contact-item">
+            <span class="c-icon">✉️</span>
+            <span class="c-val" [title]="s.email">{{ s.email }}</span>
+          </div>
+          <div class="contact-item">
+            <span class="c-icon">📞</span>
+            <span class="c-val">{{ s.phone }}</span>
+          </div>
+          <div class="contact-item">
+            <span class="c-icon">📍</span>
+            <span class="c-val" [title]="s.address">{{ s.address }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <button class="btn-card-po" (click)="createPoForSupplier(s)">
+          <span>📋</span> Prepare PO
+        </button>
+        <button class="btn-card-ai" (click)="askCopilotAboutSupplier(s)">
+          <span>✨</span> Ask AI
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TABLE VIEW -->
+  <div *ngIf="!isLoading && viewMode === 'table' && filteredSuppliers.length > 0" class="table-card">
     <div class="table-responsive">
-      <table class="table">
+      <table class="enterprise-table">
         <thead>
           <tr>
-            <th>Supplier GUID / ID</th>
-            <th>Name</th>
-            <th>Code</th>
-            <th>Email</th>
+            <th>Vendor Company</th>
+            <th>Supplier Code</th>
+            <th>Contact Email</th>
             <th>Phone</th>
+            <th>Address</th>
+            <th class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let s of suppliers">
-            <td><span class="id-tag">{{ s.supplierGuid || s.id }}</span></td>
-            <td><strong>{{ s.name }}</strong></td>
-            <td><span class="code-pill">{{ s.supplierCode || s.code }}</span></td>
-            <td>{{ s.email || 'N/A' }}</td>
-            <td>{{ s.phone || 'N/A' }}</td>
-          </tr>
-          <tr *ngIf="suppliers.length === 0">
-            <td colspan="5" class="empty-row">No suppliers registered in the system yet.</td>
+          <tr *ngFor="let s of filteredSuppliers">
+            <td>
+              <div class="table-vendor-cell">
+                <div class="table-avatar-sm" [style.background]="getSupplierAvatarColor(s.name)">
+                  {{ s.name.charAt(0).toUpperCase() }}
+                </div>
+                <div>
+                  <div class="vendor-cell-name">{{ s.name }}</div>
+                  <span class="vendor-cell-status">Active Partner</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <code class="code-badge" (click)="copyCode(s.supplierCode, $event)" title="Click to copy code">
+                {{ s.supplierCode }} 📋
+              </code>
+            </td>
+            <td>
+              <a [href]="'mailto:' + s.email" class="email-link">{{ s.email }}</a>
+            </td>
+            <td>
+              <span class="phone-text">{{ s.phone }}</span>
+            </td>
+            <td>
+              <span class="address-text">{{ s.address }}</span>
+            </td>
+            <td class="text-right">
+              <div class="table-actions">
+                <button class="btn-table-po" (click)="createPoForSupplier(s)">
+                  <span>📋</span> PO
+                </button>
+                <button class="btn-table-ai" (click)="askCopilotAboutSupplier(s)">
+                  <span>✨</span> Ask AI
+                </button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- REGISTER SUPPLIER MODAL -->
+  <div *ngIf="isModalOpen" class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-icon">🤝</span>
+          <div>
+            <h3>Register New Supplier</h3>
+            <p>Add a verified vendor into the enterprise procurement registry</p>
+          </div>
+        </div>
+        <button class="btn-modal-close" (click)="closeCreateModal()">✕</button>
+      </div>
+
+      <form (ngSubmit)="createSupplier()" class="modal-form">
+        <div class="modal-body">
+          
+          <div class="form-group">
+            <label>Supplier Company Name <span class="required">*</span></label>
+            <input 
+              type="text" 
+              [(ngModel)]="newSupplier.name" 
+              (input)="onNameChange()"
+              name="name" 
+              placeholder="e.g. Global Tech Components Ltd" 
+              required 
+              class="form-control"
+              autofocus>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-action">
+              <label>Supplier Code <span class="required">*</span></label>
+              <button type="button" class="btn-auto-code" (click)="newSupplier.supplierCode = generateSupplierCode(newSupplier.name)">
+                🎲 Auto-Generate
+              </button>
+            </div>
+            <input 
+              type="text" 
+              [(ngModel)]="newSupplier.supplierCode" 
+              name="supplierCode" 
+              placeholder="e.g. SUP-GLB-101" 
+              required 
+              class="form-control code-input">
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Email Address</label>
+              <input 
+                type="email" 
+                [(ngModel)]="newSupplier.email" 
+                name="email" 
+                placeholder="procurement@globaltech.com" 
+                class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input 
+                type="text" 
+                [(ngModel)]="newSupplier.phone" 
+                name="phone" 
+                placeholder="+1 (555) 489-1029" 
+                class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Distribution Address / Hub</label>
+            <input 
+              type="text" 
+              [(ngModel)]="newSupplier.address" 
+              name="address" 
+              placeholder="e.g. 100 Logistics Blvd, Chicago, IL" 
+              class="form-control">
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-cancel" (click)="closeCreateModal()" [disabled]="isSaving">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary" [disabled]="isSaving || !newSupplier.name.trim() || !newSupplier.supplierCode.trim()">
+            <span *ngIf="isSaving" class="spinner-sm"></span>
+            <span *ngIf="!isSaving">➕</span>
+            <span>{{ isSaving ? 'Registering...' : 'Register Supplier' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using Shared.Events.Extensions;
 using Shared.Events.Middleware;
 using SupplierService.Data;

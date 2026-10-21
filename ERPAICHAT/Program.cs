@@ -4,7 +4,7 @@ using InventoryService.Repositories.Interfaces;
 using InventoryService.Services;
 using InventoryService.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 using Shared.Events.Extensions;
 using Shared.Events.Messaging;
 using Shared.Events.Middleware;

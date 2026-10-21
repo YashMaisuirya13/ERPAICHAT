@@ -1,100 +1,350 @@
 <div class="page-container">
+  
+  <!-- Floating Toast Notification -->
+  <div *ngIf="notification" class="toast-notification" [class.toast-error]="notification.type === 'error'">
+    <span class="toast-icon">{{ notification.type === 'success' ? '✅' : '⚠️' }}</span>
+    <span>{{ notification.message }}</span>
+  </div>
+
+  <!-- Page Header -->
   <div class="page-header">
-    <div>
-      <h2>Purchase Orders 📋</h2>
-      <p>Create, submit, approve, and receive purchase orders across the supply chain workflow.</p>
+    <div class="header-info">
+      <div class="title-row">
+        <h2>Purchase Orders Directory</h2>
+        <span class="po-badge">📋 {{ totalPOCount }} Orders</span>
+        <span class="role-pill">Role: <strong>{{ userRole }}</strong></span>
+      </div>
+      <p class="subtitle">
+        End-to-end procurement lifecycle: Draft &rarr; Submit &rarr; Manager Approval &rarr; Warehouse Stock Receipt.
+      </p>
     </div>
-    <div class="role-badge-container">
-      <span>Current Role:</span> <strong>{{ userRole }}</strong>
+    <div class="header-actions">
+      <button class="btn-refresh" (click)="loadAllData()" [disabled]="isLoading" title="Refresh Purchase Orders">
+        <span [class.spinning]="isLoading">🔄</span>
+        <span>Refresh</span>
+      </button>
+      <button class="btn-primary" (click)="openCreateModal()" *ngIf="userRole === 'Procurement' || userRole === 'Admin'">
+        <span>➕</span>
+        <span>Create Purchase Order</span>
+      </button>
     </div>
   </div>
 
-  <div class="card form-card mb-4" *ngIf="userRole === 'Procurement' || userRole === 'Admin'">
-    <h3>Create New Purchase Order</h3>
-    <form (ngSubmit)="createPO()" class="form-grid">
-      <div class="form-group">
-        <label>Select Supplier</label>
-        <select [(ngModel)]="newPo.supplierId" name="supplierId" class="form-control" required>
-          <option *ngFor="let s of suppliers" [value]="s.supplierGuid || s.id">
-            {{ s.name }} (Code: {{ s.code }})
-          </option>
-          <option *ngIf="suppliers.length === 0" [value]="1">Default Supplier #1</option>
-        </select>
+  <!-- KPI Metrics Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon-box bg-blue">
+        <span>📋</span>
       </div>
-      <div class="form-group">
-        <label>Select Product</label>
-        <select [(ngModel)]="newItem.productId" name="productId" class="form-control" required>
-          <option *ngFor="let p of products" [value]="p.productId || p.id">
-            {{ p.name }} (SKU: {{ p.sku || p.SKU }})
-          </option>
-          <option *ngIf="products.length === 0" [value]="1">Default Product #1</option>
-        </select>
+      <div class="stat-data">
+        <span class="stat-label">Total Purchase Orders</span>
+        <h3 class="stat-value">{{ totalPOCount }}</h3>
+        <span class="stat-subtext">All historical orders</span>
       </div>
-      <div class="form-group">
-        <label>Quantity</label>
-        <input type="number" [(ngModel)]="newItem.quantity" name="quantity" placeholder="50" required class="form-control">
+    </div>
+
+    <div class="stat-card" [class.alert-card]="pendingApprovalCount > 0">
+      <div class="stat-icon-box" [class.bg-amber]="pendingApprovalCount > 0" [class.bg-emerald]="pendingApprovalCount === 0">
+        <span>{{ pendingApprovalCount > 0 ? '⏳' : '✅' }}</span>
       </div>
-      <div class="form-group">
-        <label>Unit Price ($)</label>
-        <input type="number" step="0.01" [(ngModel)]="newItem.unitPrice" name="unitPrice" placeholder="10.00" required class="form-control">
+      <div class="stat-data">
+        <span class="stat-label">Pending Approval</span>
+        <h3 class="stat-value" [class.text-amber]="pendingApprovalCount > 0">{{ pendingApprovalCount }}</h3>
+        <span class="stat-subtext">{{ pendingApprovalCount > 0 ? 'Requires Manager review' : 'No pending reviews' }}</span>
       </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          <span>➕</span> Create PO
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-purple">
+        <span>📦</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Approved & Transit</span>
+        <h3 class="stat-value">{{ approvedCount }}</h3>
+        <span class="stat-subtext">Awaiting warehouse check-in</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-emerald">
+        <span>💲</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Total Procurement Value</span>
+        <h3 class="stat-value">${{ totalSpend | number:'1.2-2' }}</h3>
+        <span class="stat-subtext">Committed supply budget</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Controls -->
+  <div class="controls-card">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (input)="onSearchChange()" 
+        placeholder="Search POs by PO code, supplier name, or status..." 
+        class="search-input">
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; onSearchChange()" class="btn-clear-search">✕</button>
+    </div>
+
+    <div class="filter-actions">
+      <!-- Status Tabs -->
+      <div class="status-pills">
+        <button 
+          class="pill-btn" 
+          [class.active]="statusFilter === 'all'" 
+          (click)="onFilterChange('all')">
+          All ({{ totalPOCount }})
+        </button>
+        <button 
+          class="pill-btn" 
+          [class.active]="statusFilter === 'draft'" 
+          (click)="onFilterChange('draft')">
+          🟡 Draft
+        </button>
+        <button 
+          class="pill-btn pill-amber" 
+          [class.active]="statusFilter === 'submitted'" 
+          (click)="onFilterChange('submitted')">
+          ⏳ Pending ({{ pendingApprovalCount }})
+        </button>
+        <button 
+          class="pill-btn pill-success" 
+          [class.active]="statusFilter === 'approved'" 
+          (click)="onFilterChange('approved')">
+          ✅ Approved ({{ approvedCount }})
+        </button>
+        <button 
+          class="pill-btn pill-purple" 
+          [class.active]="statusFilter === 'received'" 
+          (click)="onFilterChange('received')">
+          📥 Received ({{ receivedCount }})
+        </button>
+        <button 
+          class="pill-btn pill-danger" 
+          [class.active]="statusFilter === 'rejected'" 
+          (click)="onFilterChange('rejected')">
+          ❌ Rejected
         </button>
       </div>
-    </form>
+
+      <!-- Sorting -->
+      <div class="sort-wrapper">
+        <label class="sort-label">Sort:</label>
+        <select [ngModel]="sortBy" (change)="onSortChange($event)" class="sort-select">
+          <option value="date-desc">Newest Orders First</option>
+          <option value="amount-desc">Total Amount (Highest)</option>
+          <option value="amount-asc">Total Amount (Lowest)</option>
+          <option value="status">Status</option>
+        </select>
+      </div>
+    </div>
   </div>
 
-  <div class="card table-card">
-    <div class="table-header">
-      <h3>Purchase Orders Directory</h3>
-      <span class="count-badge">{{ purchaseOrders.length }} Orders</span>
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading purchase orders from Procurement Service...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredPOs.length === 0" class="empty-state-card">
+    <div class="empty-icon">📋</div>
+    <h3>No Purchase Orders Found</h3>
+    <p *ngIf="searchTerm || statusFilter !== 'all'">No purchase orders matched your current filters.</p>
+    <p *ngIf="!searchTerm && statusFilter === 'all'">No purchase orders have been created yet.</p>
+    <div class="empty-actions">
+      <button *ngIf="searchTerm || statusFilter !== 'all'" (click)="searchTerm = ''; statusFilter = 'all'; applyFilters()" class="btn-secondary">
+        Clear Filters
+      </button>
+      <button (click)="openCreateModal()" class="btn-primary" *ngIf="userRole === 'Procurement' || userRole === 'Admin'">
+        <span>➕</span> Create First PO
+      </button>
     </div>
-    
+  </div>
+
+  <!-- Purchase Orders Table -->
+  <div *ngIf="!isLoading && filteredPOs.length > 0" class="table-card">
     <div class="table-responsive">
-      <table class="table">
+      <table class="enterprise-table">
         <thead>
           <tr>
-            <th>PO ID</th>
-            <th>Supplier</th>
+            <th>Order Code</th>
+            <th>Supplier Partner</th>
             <th>Status</th>
             <th>Total Amount</th>
-            <th>Workflow Actions</th>
+            <th class="text-right">Workflow Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let po of purchaseOrders">
-            <td><span class="id-tag">{{ po.purchaseOrderGuid || po.id }}</span></td>
-            <td><strong>{{ po.supplierName || ('Supplier #' + po.supplierId) }}</strong></td>
+          <tr *ngFor="let po of filteredPOs">
             <td>
-              <span class="status-badge" [class]="'status-' + (po.status | lowercase)">
+              <div class="po-code-cell">
+                <span class="po-icon">📄</span>
+                <div>
+                  <code class="po-code-badge">{{ po.purchaseOrderGuid | slice:0:13 }}...</code>
+                  <span class="po-full-id">{{ po.purchaseOrderGuid }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="supplier-cell">
+                <span class="supplier-name">{{ po.supplierName }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="status-badge status-{{ po.status | lowercase }}">
+                <span class="status-dot"></span>
                 {{ po.status }}
               </span>
             </td>
-            <td><span class="amount-text">$ {{ po.totalAmount | number:'1.2-2' }}</span></td>
             <td>
-              <div class="action-buttons">
-                <button class="btn-action btn-submit" *ngIf="po.status === 'Draft' && (userRole === 'Procurement' || userRole === 'Admin')" (click)="submit(po.purchaseOrderGuid || po.id)">
-                  📤 Submit
+              <span class="amount-badge">${{ po.totalAmount | number:'1.2-2' }}</span>
+            </td>
+            <td class="text-right">
+              <div class="action-buttons-cell">
+                
+                <!-- Draft -> Submit -->
+                <button 
+                  class="btn-act btn-submit" 
+                  *ngIf="po.status === 'Draft' && (userRole === 'Procurement' || userRole === 'Admin')" 
+                  (click)="submit(po.purchaseOrderGuid || ('' + po.id))" 
+                  title="Submit order for Manager approval">
+                  <span>🚀</span> Submit
                 </button>
-                <button class="btn-action btn-approve" *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" (click)="approve(po.purchaseOrderGuid || po.id)">
-                  ✅ Approve
+
+                <!-- Submitted -> Approve / Reject -->
+                <button 
+                  class="btn-act btn-approve" 
+                  *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" 
+                  (click)="approve(po.purchaseOrderGuid || ('' + po.id))" 
+                  title="Approve this Purchase Order">
+                  <span>✅</span> Approve
                 </button>
-                <button class="btn-action btn-reject" *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" (click)="reject(po.purchaseOrderGuid || po.id)">
-                  ❌ Reject
+
+                <button 
+                  class="btn-act btn-reject" 
+                  *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" 
+                  (click)="reject(po.purchaseOrderGuid || ('' + po.id))" 
+                  title="Reject this Purchase Order">
+                  <span>❌</span> Reject
                 </button>
-                <button class="btn-action btn-receive" *ngIf="po.status === 'Approved'" (click)="receive(po.purchaseOrderGuid || po.id)">
-                  📦 Receive Stock
+
+                <!-- Approved -> Receive Stock -->
+                <button 
+                  class="btn-act btn-receive" 
+                  *ngIf="po.status === 'Approved'" 
+                  (click)="receive(po.purchaseOrderGuid || ('' + po.id))" 
+                  title="Mark items received and restock warehouse">
+                  <span>📥</span> Receive
                 </button>
+
+                <!-- AI Copilot Audit -->
+                <button class="btn-act btn-ai" (click)="askCopilotAboutPO(po)" title="Audit PO with AI Copilot">
+                  <span>✨</span> Ask AI
+                </button>
+
               </div>
             </td>
-          </tr>
-          <tr *ngIf="purchaseOrders.length === 0">
-            <td colspan="5" class="empty-row">No purchase orders found in the system.</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- CREATE PO MODAL -->
+  <div *ngIf="isModalOpen" class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-icon">📋</span>
+          <div>
+            <h3>Create Purchase Order</h3>
+            <p>Generate a purchase order contract with a verified supplier partner</p>
+          </div>
+        </div>
+        <button class="btn-modal-close" (click)="closeCreateModal()">✕</button>
+      </div>
+
+      <form (ngSubmit)="createPO()" class="modal-form">
+        <div class="modal-body">
+          
+          <div class="form-group">
+            <label>Select Supplier Partner <span class="required">*</span></label>
+            <select [(ngModel)]="newPo.supplierId" name="supplierId" class="form-control" required>
+              <option *ngFor="let s of suppliers" [value]="s.supplierGuid || s.id">
+                {{ s.name || s.Name }} (Code: {{ s.supplierCode || s.SupplierCode }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Select Product Item <span class="required">*</span></label>
+            <select [(ngModel)]="newItem.productId" (change)="onProductSelectChange()" name="productId" class="form-control" required>
+              <option *ngFor="let p of products" [value]="p.productId || p.id">
+                {{ p.name || p.Name }} (SKU: {{ p.sku || p.SKU }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Order Quantity <span class="required">*</span></label>
+              <input 
+                type="number" 
+                min="1" 
+                [(ngModel)]="newItem.quantity" 
+                name="quantity" 
+                placeholder="20" 
+                required 
+                class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label>Unit Contract Price ($) <span class="required">*</span></label>
+              <div class="input-with-prefix">
+                <span class="input-prefix">$</span>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  [(ngModel)]="newItem.unitPrice" 
+                  name="unitPrice" 
+                  placeholder="999.00" 
+                  required 
+                  class="form-control with-prefix">
+              </div>
+            </div>
+          </div>
+
+          <!-- Total Preview Box -->
+          <div class="total-calculation-box">
+            <div class="calc-formula">
+              <span>{{ newItem.quantity || 0 }} units &times; ${{ newItem.unitPrice || 0 | number:'1.2-2' }}</span>
+            </div>
+            <div class="calc-total">
+              <span class="total-label">Estimated PO Total:</span>
+              <strong class="total-value">${{ calculatedTotal | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-cancel" (click)="closeCreateModal()" [disabled]="isSaving">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary" [disabled]="isSaving || !newPo.supplierId">
+            <span *ngIf="isSaving" class="spinner-sm"></span>
+            <span *ngIf="!isSaving">🚀</span>
+            <span>{{ isSaving ? 'Creating...' : 'Create Draft PO' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>

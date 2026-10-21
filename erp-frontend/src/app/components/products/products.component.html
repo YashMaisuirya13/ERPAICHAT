@@ -1,68 +1,377 @@
 <div class="page-container">
+  
+  <!-- Floating Toast Notification -->
+  <div *ngIf="notification" class="toast-notification" [class.toast-error]="notification.type === 'error'">
+    <span class="toast-icon">{{ notification.type === 'success' ? '✅' : '⚠️' }}</span>
+    <span>{{ notification.message }}</span>
+  </div>
+
+  <!-- Page Header -->
   <div class="page-header">
-    <div>
-      <h2>Products Catalog 📦</h2>
-      <p>Manage product inventory items, SKUs, pricing, and minimum stock thresholds.</p>
+    <div class="header-info">
+      <div class="title-row">
+        <h2>Products Catalog</h2>
+        <span class="catalog-badge">📦 {{ totalProducts }} Registered Products</span>
+      </div>
+      <p class="subtitle">
+        Enterprise SKU registry, pricing controls, safety stock thresholds, and AI-assisted inventory lookups.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-refresh" (click)="loadProducts()" [disabled]="isLoading" title="Refresh Products">
+        <span [class.spinning]="isLoading">🔄</span>
+        <span>Refresh</span>
+      </button>
+      <button class="btn-primary" (click)="openCreateModal()">
+        <span>➕</span>
+        <span>Add New Product</span>
+      </button>
     </div>
   </div>
 
-  <div class="card form-card mb-4">
-    <h3>Add New Product</h3>
-    <form (ngSubmit)="createProduct()" class="form-grid">
-      <div class="form-group">
-        <label>Product Name</label>
-        <input type="text" [(ngModel)]="newProduct.name" name="name" placeholder="e.g. Industrial Widget" required class="form-control">
+  <!-- KPI Metrics Row -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon-box bg-blue">
+        <span>📦</span>
       </div>
-      <div class="form-group">
-        <label>SKU Code</label>
-        <input type="text" [(ngModel)]="newProduct.sku" name="sku" placeholder="e.g. WDG-8821" required class="form-control">
+      <div class="stat-data">
+        <span class="stat-label">Total SKUs</span>
+        <h3 class="stat-value">{{ totalProducts }}</h3>
+        <span class="stat-subtext">Active catalog items</span>
       </div>
-      <div class="form-group">
-        <label>Unit Price ($)</label>
-        <input type="number" step="0.01" [(ngModel)]="newProduct.unitPrice" name="unitPrice" placeholder="0.00" required class="form-control">
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-emerald">
+        <span>💲</span>
       </div>
-      <div class="form-group">
-        <label>Minimum Stock Level</label>
-        <input type="number" [(ngModel)]="newProduct.minimumStock" name="minimumStock" placeholder="10" required class="form-control">
+      <div class="stat-data">
+        <span class="stat-label">Avg. Unit Price</span>
+        <h3 class="stat-value">${{ averagePrice | number:'1.2-2' }}</h3>
+        <span class="stat-subtext">Across active catalog</span>
       </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          <span>➕</span> Create Product
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-purple">
+        <span>💎</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">High-Value Items</span>
+        <h3 class="stat-value">{{ highValueCount }}</h3>
+        <span class="stat-subtext">Price &ge; $500.00</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-amber">
+        <span>⚠️</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Max Min-Stock Target</span>
+        <h3 class="stat-value">{{ highestMinStock }}</h3>
+        <span class="stat-subtext">Safety threshold</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Control Bar -->
+  <div class="controls-card">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (input)="onSearchChange()" 
+        placeholder="Search products by name, SKU code, or GUID..." 
+        class="search-input">
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; onSearchChange()" class="btn-clear-search">✕</button>
+    </div>
+
+    <div class="filter-actions">
+      <!-- Category Pills -->
+      <div class="category-pills">
+        <button 
+          class="cat-pill" 
+          [class.active]="selectedCategory === 'all'" 
+          (click)="onCategoryChange('all')">
+          All
+        </button>
+        <button 
+          class="cat-pill" 
+          [class.active]="selectedCategory === 'Computing'" 
+          (click)="onCategoryChange('Computing')">
+          💻 Computing
+        </button>
+        <button 
+          class="cat-pill" 
+          [class.active]="selectedCategory === 'Displays'" 
+          (click)="onCategoryChange('Displays')">
+          🖥️ Displays
+        </button>
+        <button 
+          class="cat-pill" 
+          [class.active]="selectedCategory === 'Peripherals'" 
+          (click)="onCategoryChange('Peripherals')">
+          ⌨️ Peripherals
+        </button>
+        <button 
+          class="cat-pill" 
+          [class.active]="selectedCategory === 'General'" 
+          (click)="onCategoryChange('General')">
+          📦 General
         </button>
       </div>
-    </form>
+
+      <!-- Sort & View Controls -->
+      <div class="view-and-sort">
+        <div class="sort-wrapper">
+          <label class="sort-label">Sort:</label>
+          <select [ngModel]="sortBy" (change)="onSortChange($event)" class="sort-select">
+            <option value="name-asc">Name (A → Z)</option>
+            <option value="name-desc">Name (Z → A)</option>
+            <option value="price-asc">Price (Low → High)</option>
+            <option value="price-desc">Price (High → Low)</option>
+            <option value="stock-desc">Min. Stock (Highest)</option>
+            <option value="stock-asc">Min. Stock (Lowest)</option>
+          </select>
+        </div>
+
+        <div class="view-toggles">
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'grid'" 
+            (click)="viewMode = 'grid'" 
+            title="Grid Cards View">
+            ⊞
+          </button>
+          <button 
+            class="view-btn" 
+            [class.active]="viewMode === 'table'" 
+            (click)="viewMode = 'table'" 
+            title="Dense Table View">
+            ☰
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="card table-card">
-    <div class="table-header">
-      <h3>Product Catalog Items</h3>
-      <span class="count-badge">{{ products.length }} Items</span>
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading products from Inventory Service...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredProducts.length === 0" class="empty-state-card">
+    <div class="empty-icon">📦</div>
+    <h3>No Products Found</h3>
+    <p *ngIf="searchTerm">No catalog products matched your search term "<strong>{{ searchTerm }}</strong>".</p>
+    <p *ngIf="!searchTerm">Your product catalog is currently empty.</p>
+    <div class="empty-actions">
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; selectedCategory = 'all'; applyFilters()" class="btn-secondary">
+        Reset Search Filters
+      </button>
+      <button (click)="openCreateModal()" class="btn-primary">
+        <span>➕</span> Add First Product
+      </button>
     </div>
-    
+  </div>
+
+  <!-- GRID VIEW -->
+  <div *ngIf="!isLoading && viewMode === 'grid' && filteredProducts.length > 0" class="products-grid">
+    <div *ngFor="let p of filteredProducts" class="product-card">
+      
+      <!-- Card Top -->
+      <div class="card-header-row">
+        <div class="product-avatar-box">
+          <span class="avatar-emoji">{{ getProductIcon(p.category) }}</span>
+        </div>
+        <div class="card-badges">
+          <span class="category-tag">{{ p.category }}</span>
+          <span class="price-chip">${{ p.unitPrice | number:'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <!-- Card Body -->
+      <div class="card-body">
+        <h4 class="product-title" [title]="p.name">{{ p.name }}</h4>
+        
+        <div class="sku-row">
+          <span class="sku-label">SKU:</span>
+          <code class="sku-code" (click)="copySku(p.sku, $event)" title="Click to copy SKU">
+            {{ p.sku }}
+            <span class="copy-icon">📋</span>
+          </code>
+        </div>
+
+        <div class="stock-threshold-bar">
+          <div class="threshold-label">
+            <span>Safety Stock Level</span>
+            <strong>{{ p.minimumStock }} units</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" [style.width.%]="p.minimumStock > 100 ? 100 : p.minimumStock"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Footer Actions -->
+      <div class="card-footer">
+        <button class="btn-ask-ai" (click)="askCopilotAboutProduct(p)" title="Query live inventory with AI Copilot">
+          <span class="ai-sparkle">✨</span>
+          <span>Ask AI Copilot</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TABLE VIEW -->
+  <div *ngIf="!isLoading && viewMode === 'table' && filteredProducts.length > 0" class="table-card">
     <div class="table-responsive">
-      <table class="table">
+      <table class="enterprise-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>SKU</th>
+            <th>Product</th>
+            <th>Category</th>
+            <th>SKU Code</th>
             <th>Unit Price</th>
-            <th>Minimum Stock</th>
+            <th>Min. Stock Target</th>
+            <th class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of products">
-            <td><span class="id-tag">{{ p.productId || p.id || p.productGuid }}</span></td>
-            <td><strong>{{ p.name }}</strong></td>
-            <td><span class="sku-tag">{{ p.sku || p.SKU }}</span></td>
-            <td><span class="price-badge">$ {{ (p.unitPrice !== undefined ? p.unitPrice : p.UnitPrice) | number:'1.2-2' }}</span></td>
-            <td><span class="stock-badge">{{ p.minimumStock !== undefined ? p.minimumStock : p.MinimumStock }} units</span></td>
-          </tr>
-          <tr *ngIf="products.length === 0">
-            <td colspan="5" class="empty-row">No products found in the catalog.</td>
+          <tr *ngFor="let p of filteredProducts">
+            <td>
+              <div class="table-product-cell">
+                <span class="table-icon">{{ getProductIcon(p.category) }}</span>
+                <div>
+                  <div class="product-cell-name">{{ p.name }}</div>
+                  <div class="product-cell-id" *ngIf="p.productGuid">ID: {{ p.productGuid | slice:0:8 }}...</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="category-pill-sm">{{ p.category }}</span>
+            </td>
+            <td>
+              <code class="sku-badge" (click)="copySku(p.sku, $event)" title="Click to copy">
+                {{ p.sku }} 📋
+              </code>
+            </td>
+            <td>
+              <span class="price-text">${{ p.unitPrice | number:'1.2-2' }}</span>
+            </td>
+            <td>
+              <span class="threshold-badge">{{ p.minimumStock }} units</span>
+            </td>
+            <td class="text-right">
+              <button class="btn-table-ai" (click)="askCopilotAboutProduct(p)">
+                <span>✨</span> Ask AI
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- CREATE PRODUCT MODAL -->
+  <div *ngIf="isModalOpen" class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-icon">📦</span>
+          <div>
+            <h3>Add New Product</h3>
+            <p>Register a new product item into the Inventory Service catalog</p>
+          </div>
+        </div>
+        <button class="btn-modal-close" (click)="closeCreateModal()">✕</button>
+      </div>
+
+      <form (ngSubmit)="createProduct()" class="modal-form">
+        <div class="modal-body">
+          
+          <div class="form-group">
+            <label>Product Name <span class="required">*</span></label>
+            <input 
+              type="text" 
+              [(ngModel)]="newProduct.name" 
+              (input)="onNameChange()"
+              name="name" 
+              placeholder="e.g. Dell Latitude 5540 Laptop" 
+              required 
+              class="form-control"
+              autofocus>
+            <span class="form-hint">Descriptive name for inventory tracking</span>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-action">
+              <label>SKU Code <span class="required">*</span></label>
+              <button type="button" class="btn-auto-sku" (click)="newProduct.sku = generateSkuSuggestion(newProduct.name)">
+                🎲 Auto-Generate
+              </button>
+            </div>
+            <input 
+              type="text" 
+              [(ngModel)]="newProduct.sku" 
+              name="sku" 
+              placeholder="e.g. LAP-5540" 
+              required 
+              class="form-control sku-input">
+            <span class="form-hint">Unique Stock Keeping Unit barcode identifier</span>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Unit Price ($ USD) <span class="required">*</span></label>
+              <div class="input-with-prefix">
+                <span class="input-prefix">$</span>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  min="0"
+                  [(ngModel)]="newProduct.unitPrice" 
+                  name="unitPrice" 
+                  placeholder="0.00" 
+                  required 
+                  class="form-control with-prefix">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Minimum Stock Level <span class="required">*</span></label>
+              <input 
+                type="number" 
+                min="0"
+                [(ngModel)]="newProduct.minimumStock" 
+                name="minimumStock" 
+                placeholder="10" 
+                required 
+                class="form-control">
+              <span class="form-hint">Reorder trigger threshold</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-cancel" (click)="closeCreateModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary" [disabled]="isSaving || !newProduct.name.trim() || !newProduct.sku.trim()">
+            <span *ngIf="isSaving" class="spinner-sm"></span>
+            <span *ngIf="!isSaving">➕</span>
+            <span>{{ isSaving ? 'Creating...' : 'Create Product' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>

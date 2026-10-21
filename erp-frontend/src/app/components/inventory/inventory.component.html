@@ -1,74 +1,300 @@
 <div class="page-container">
+  
+  <!-- Floating Toast Notification -->
+  <div *ngIf="notification" class="toast-notification" [class.toast-error]="notification.type === 'error'">
+    <span class="toast-icon">{{ notification.type === 'success' ? '✅' : '⚠️' }}</span>
+    <span>{{ notification.message }}</span>
+  </div>
+
+  <!-- Page Header -->
   <div class="page-header">
-    <div>
-      <h2>Inventory & Warehouse Management 🏭</h2>
-      <p>Monitor real-time stock availability, reorder levels, and stock movements.</p>
+    <div class="header-info">
+      <div class="title-row">
+        <h2>Inventory & Warehouse Management</h2>
+        <span class="inventory-badge">🏭 {{ totalItemsTracked }} SKU Lines Tracked</span>
+      </div>
+      <p class="subtitle">
+        Real-time warehouse stock balances, reorder threshold alerts, and inbound/outbound adjustments.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-refresh" (click)="loadAllData()" [disabled]="isLoading" title="Refresh Inventory">
+        <span [class.spinning]="isLoading">🔄</span>
+        <span>Refresh</span>
+      </button>
+      <button class="btn-primary" (click)="openStockModal()">
+        <span>📦</span>
+        <span>Stock Adjustment</span>
+      </button>
     </div>
   </div>
 
-  <div class="card form-card mb-4">
-    <h3>Stock In / Stock Out Adjustment</h3>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Select Product</label>
-        <select [(ngModel)]="stockForm.productId" name="productId" class="form-control">
-          <option *ngFor="let p of products" [value]="p.productId || p.id">
-            {{ p.name }} (SKU: {{ p.sku || p.SKU }})
-          </option>
-          <option *ngIf="products.length === 0" [value]="1">Default Product #1</option>
+  <!-- KPI Metrics Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon-box bg-blue">
+        <span>🏭</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Total Warehoused Units</span>
+        <h3 class="stat-value">{{ totalWarehousedUnits | number }}</h3>
+        <span class="stat-subtext">Cumulative physical stock</span>
+      </div>
+    </div>
+
+    <div class="stat-card" [class.alert-card]="lowStockAlertsCount > 0">
+      <div class="stat-icon-box" [class.bg-red]="lowStockAlertsCount > 0" [class.bg-emerald]="lowStockAlertsCount === 0">
+        <span>{{ lowStockAlertsCount > 0 ? '⚠️' : '✅' }}</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Low Stock Alerts</span>
+        <h3 class="stat-value" [class.text-danger]="lowStockAlertsCount > 0">{{ lowStockAlertsCount }}</h3>
+        <span class="stat-subtext">{{ lowStockAlertsCount > 0 ? 'Requires reorder PO' : 'All items optimal' }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-emerald">
+        <span>🛡️</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Healthy Stock Lines</span>
+        <h3 class="stat-value">{{ healthyStockCount }}</h3>
+        <span class="stat-subtext">Above safety thresholds</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon-box bg-purple">
+        <span>📊</span>
+      </div>
+      <div class="stat-data">
+        <span class="stat-label">Active SKUs</span>
+        <h3 class="stat-value">{{ totalItemsTracked }}</h3>
+        <span class="stat-subtext">Live catalog items</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Controls -->
+  <div class="controls-card">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (input)="onSearchChange()" 
+        placeholder="Filter inventory by product name, SKU, or Product ID..." 
+        class="search-input">
+      <button *ngIf="searchTerm" (click)="searchTerm = ''; onSearchChange()" class="btn-clear-search">✕</button>
+    </div>
+
+    <div class="filter-actions">
+      <!-- Status Pills -->
+      <div class="status-pills">
+        <button 
+          class="pill-btn" 
+          [class.active]="statusFilter === 'all'" 
+          (click)="onFilterChange('all')">
+          All ({{ totalItemsTracked }})
+        </button>
+        <button 
+          class="pill-btn pill-danger" 
+          [class.active]="statusFilter === 'low'" 
+          (click)="onFilterChange('low')">
+          ⚠️ Low Stock ({{ lowStockAlertsCount }})
+        </button>
+        <button 
+          class="pill-btn pill-success" 
+          [class.active]="statusFilter === 'healthy'" 
+          (click)="onFilterChange('healthy')">
+          ✅ Healthy ({{ healthyStockCount }})
+        </button>
+      </div>
+
+      <!-- Sorting -->
+      <div class="sort-wrapper">
+        <label class="sort-label">Sort:</label>
+        <select [ngModel]="sortBy" (change)="onSortChange($event)" class="sort-select">
+          <option value="qty-asc">Stock Level (Lowest First)</option>
+          <option value="qty-desc">Stock Level (Highest First)</option>
+          <option value="name-asc">Product Name (A → Z)</option>
+          <option value="threshold-desc">Safety Threshold (High → Low)</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Quantity</label>
-        <input type="number" [(ngModel)]="stockForm.quantity" placeholder="Quantity amount" class="form-control">
-      </div>
-      <div class="form-group">
-        <label>Reference / PO</label>
-        <input type="text" [(ngModel)]="stockForm.reference" placeholder="e.g. PO-101 or Audit" class="form-control">
-      </div>
-      <div class="form-actions">
-        <button (click)="doStockIn()" class="btn btn-success">
-          <span>📥</span> Stock In
-        </button>
-        <button (click)="doStockOut()" class="btn btn-danger">
-          <span>📤</span> Stock Out
-        </button>
-      </div>
     </div>
   </div>
 
-  <div class="card table-card">
-    <div class="table-header">
-      <h3>Current Inventory Levels</h3>
-      <span class="count-badge">{{ inventory.length }} Warehoused Items</span>
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Loading real-time stock balances...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredInventory.length === 0" class="empty-state-card">
+    <div class="empty-icon">🏭</div>
+    <h3>No Inventory Records Match</h3>
+    <p *ngIf="searchTerm || statusFilter !== 'all'">Try adjusting your filter or search keywords.</p>
+    <p *ngIf="!searchTerm && statusFilter === 'all'">No products have inventory registered yet.</p>
+    <div class="empty-actions">
+      <button *ngIf="searchTerm || statusFilter !== 'all'" (click)="searchTerm = ''; statusFilter = 'all'; applyFilters()" class="btn-secondary">
+        Clear Filters
+      </button>
+      <button (click)="openStockModal()" class="btn-primary">
+        <span>📥</span> Record Initial Stock In
+      </button>
     </div>
-    
+  </div>
+
+  <!-- Inventory Table -->
+  <div *ngIf="!isLoading && filteredInventory.length > 0" class="table-card">
     <div class="table-responsive">
-      <table class="table">
+      <table class="enterprise-table">
         <thead>
           <tr>
-            <th>Product ID</th>
-            <th>Quantity Available</th>
-            <th>Reorder Threshold</th>
+            <th>Product & SKU</th>
             <th>Stock Status</th>
+            <th>Available Quantity</th>
+            <th>Reorder Safety Level</th>
+            <th>Stock Health</th>
+            <th class="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of inventory">
-            <td><span class="id-tag">#{{ item.productId }}</span></td>
-            <td><strong class="qty-num">{{ item.quantityAvailable }}</strong> units</td>
-            <td>{{ item.reorderLevel }} units</td>
+          <tr *ngFor="let item of filteredInventory">
             <td>
-              <span class="status-badge" [class.danger]="item.quantityAvailable <= item.reorderLevel" [class.success]="item.quantityAvailable > item.reorderLevel">
-                {{ item.quantityAvailable <= item.reorderLevel ? '⚠️ Low Stock' : '✅ Healthy' }}
+              <div class="product-cell">
+                <span class="product-icon">📦</span>
+                <div>
+                  <div class="product-name">{{ item.productName }}</div>
+                  <div class="product-meta">
+                    <span class="sku-tag">SKU: {{ item.sku }}</span>
+                    <span class="pid-tag">#{{ item.productId }}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="status-badge" [class.badge-danger]="item.quantityAvailable <= item.reorderLevel" [class.badge-success]="item.quantityAvailable > item.reorderLevel">
+                {{ item.quantityAvailable <= item.reorderLevel ? '⚠️ Low Stock' : '✅ Optimal' }}
               </span>
             </td>
-          </tr>
-          <tr *ngIf="inventory.length === 0">
-            <td colspan="4" class="empty-row">No inventory records found.</td>
+            <td>
+              <span class="qty-highlight" [class.text-danger]="item.quantityAvailable <= item.reorderLevel">
+                {{ item.quantityAvailable | number }}
+              </span>
+              <span class="unit-text">units</span>
+            </td>
+            <td>
+              <span class="threshold-pill">{{ item.reorderLevel }} units min.</span>
+            </td>
+            <td>
+              <div class="health-gauge">
+                <div class="gauge-track">
+                  <div 
+                    class="gauge-fill" 
+                    [class.fill-danger]="item.quantityAvailable <= item.reorderLevel"
+                    [class.fill-healthy]="item.quantityAvailable > item.reorderLevel"
+                    [style.width.%]="(item.quantityAvailable / (item.reorderLevel * 2)) * 100 > 100 ? 100 : ((item.quantityAvailable / (item.reorderLevel * 2)) * 100 || 5)">
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td class="text-right">
+              <div class="action-buttons-cell">
+                <button class="btn-adjust" (click)="openStockModal(item.productId)" title="Adjust Stock In/Out">
+                  <span>📦</span> Adjust
+                </button>
+                <button class="btn-ai" (click)="askCopilotAboutInventory(item)" title="Audit with AI Copilot">
+                  <span>✨</span> Ask AI
+                </button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- STOCK IN / STOCK OUT MODAL -->
+  <div *ngIf="isModalOpen" class="modal-backdrop" (click)="closeStockModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-icon">📦</span>
+          <div>
+            <h3>Warehouse Stock Adjustment</h3>
+            <p>Record stock receipts (Inbound) or inventory dispatches (Outbound)</p>
+          </div>
+        </div>
+        <button class="btn-modal-close" (click)="closeStockModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <div class="form-group">
+          <label>Select Product Item <span class="required">*</span></label>
+          <select [(ngModel)]="stockForm.productId" class="form-control select-product">
+            <option *ngFor="let p of products" [value]="p.productId || p.id">
+              {{ p.name || p.Name }} (SKU: {{ p.sku || p.SKU }})
+            </option>
+          </select>
+          <div *ngIf="getSelectedProduct()" class="selected-product-preview">
+            <span>Current SKU: <strong>{{ getSelectedProduct()?.sku || getSelectedProduct()?.SKU }}</strong></span>
+            <span>Unit Price: <strong>${{ getSelectedProduct()?.unitPrice || getSelectedProduct()?.UnitPrice | number:'1.2-2' }}</strong></span>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>Quantity Units <span class="required">*</span></label>
+            <input 
+              type="number" 
+              min="1" 
+              [(ngModel)]="stockForm.quantity" 
+              placeholder="e.g. 50" 
+              class="form-control">
+            <span class="form-hint">Number of physical units to adjust</span>
+          </div>
+
+          <div class="form-group">
+            <label>Reference / Audit ID <span class="required">*</span></label>
+            <input 
+              type="text" 
+              [(ngModel)]="stockForm.reference" 
+              placeholder="e.g. PO-102 or AUDIT-2026" 
+              class="form-control">
+            <span class="form-hint">Tracking reference or purchase order</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" (click)="closeStockModal()" [disabled]="isSaving">
+          Cancel
+        </button>
+        
+        <div class="dual-actions">
+          <button 
+            type="button" 
+            class="btn-stock-in" 
+            (click)="doStockIn()" 
+            [disabled]="isSaving || stockForm.quantity <= 0">
+            <span>📥</span> Stock In (+{{ stockForm.quantity }})
+          </button>
+          
+          <button 
+            type="button" 
+            class="btn-stock-out" 
+            (click)="doStockOut()" 
+            [disabled]="isSaving || stockForm.quantity <= 0">
+            <span>📤</span> Stock Out (-{{ stockForm.quantity }})
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>

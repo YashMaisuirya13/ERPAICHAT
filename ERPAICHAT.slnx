@@ -4,4 +4,5 @@
   <Project Path="ProcurementService/ProcurementService.csproj" />
   <Project Path="ApiGateway/ApiGateway.csproj" />
   <Project Path="Shared.Events/Shared.Events.csproj" />
+  <Project Path="AIAgentService/AIAgentService.csproj" />
 </Solution>

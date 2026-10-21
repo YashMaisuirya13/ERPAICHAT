@@ -1,3 +1,5 @@
+using System.Text;
+using AIAgentService.AI;
 using AIAgentService.Tools.DTOs;
 using AIAgentService.Tools.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -7,30 +9,76 @@ namespace AIAgentService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
 public class AIController : ControllerBase
 {
+    private readonly IAIService _aiService;
     private readonly IERPTools _erpTools;
     private readonly ILogger<AIController> _logger;
 
-    public AIController(IERPTools erpTools, ILogger<AIController> logger)
+    public AIController(IAIService aiService, IERPTools erpTools, ILogger<AIController> logger)
     {
+        _aiService = aiService;
         _erpTools = erpTools;
         _logger = logger;
     }
 
     [HttpPost("chat")]
-    [Authorize(Roles = "Admin,Procurement,Manager")]
     public async Task<IActionResult> Chat([FromBody] ChatRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.Prompt))
         {
-            return BadRequest(new { message = "Prompt is required." });
+            return BadRequest(new
+            {
+                message = "Prompt is required."
+            });
         }
 
-        var prompt = request.Prompt.ToLowerInvariant();
-        _logger.LogInformation("AI Agent received prompt: {Prompt}", request.Prompt);
+        _logger.LogInformation("[AIController] Received Chat Prompt: {Prompt} (Active Provider: {Provider})", 
+            request.Prompt, _aiService.ProviderName);
 
+        try
+        {
+            var result = await _aiService.ExecuteChatAgentAsync(request.Prompt);
+
+            return Ok(new
+            {
+                success = true,
+                source = _aiService.ProviderName,
+                data = new
+                {
+                    response = result.Response,
+                    toolCalled = result.ToolCalled ?? "none",
+                    result = result.ToolResult
+                },
+                response = result.Response
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("[AIController] AI Provider '{Provider}' call failed ({Message}). Falling back to local ERP tools execution.", 
+                _aiService.ProviderName, ex.Message);
+
+            var (explanation, dataResult, toolCalled) = await ExecuteLocalERPToolsAsync(request.Prompt);
+
+            return Ok(new
+            {
+                success = true,
+                source = "Local-ERP-Tools-Fallback",
+                data = new
+                {
+                    response = explanation,
+                    toolCalled,
+                    result = dataResult,
+                    diagnosticNotice = $"AI Provider ({_aiService.ProviderName}) Notice: {ex.Message}"
+                },
+                response = explanation
+            });
+        }
+    }
+
+    private async Task<(string Explanation, object DataResult, string ToolCalled)> ExecuteLocalERPToolsAsync(string userPrompt)
+    {
+        var prompt = userPrompt.ToLowerInvariant();
         string toolCalled = "none";
         object dataResult = new object();
         string explanation = "";
@@ -44,13 +92,14 @@ public class AIController : ControllerBase
             {
                 var inv = await _erpTools.GetProductInventoryAsync(laptop.Id);
                 var available = inv.Sum(i => i.Quantity);
-                explanation = $"Laptop stock is {available}, while minimum stock is {laptop.MinimumStock}.";
+                var whDetails = string.Join(", ", inv.Select(x => $"{x.WarehouseCode}: {x.Quantity} units"));
+                explanation = $"### 💻 Laptop Stock Status\n\n- **Product:** {laptop.Name}\n- **SKU:** `{laptop.SKU}`\n- **Total Available:** **{available} units**\n- **Safety Threshold:** {laptop.MinimumStock} units\n- **Warehouse Locations:** {whDetails}\n- **Status:** {(available <= laptop.MinimumStock ? "⚠️ **Low Stock**" : "✅ **Healthy**")}";
                 dataResult = new { laptop, available, inventory = inv };
             }
             else
             {
                 var lowStock = await _erpTools.GetLowStockProductsAsync();
-                explanation = $"Checked stock levels via `get_low_stock_products()`. Found {lowStock.Count} low stock item(s).";
+                explanation = $"### 📦 Product Stock\n\nNo laptop models found in catalog. Checked overall inventory and found {lowStock.Count} low stock item(s).";
                 dataResult = lowStock;
             }
         }
@@ -60,7 +109,7 @@ public class AIController : ControllerBase
             var suppliers = await _erpTools.GetSuppliersAsync();
             if (suppliers.Count == 0)
             {
-                explanation = "I searched for suppliers using `get_suppliers()`, but no active suppliers were found in the registry.";
+                explanation = "### ❌ Purchase Order Notice\n\nSearched supplier registry, but no active suppliers are currently available.";
                 dataResult = new { suppliers };
             }
             else
@@ -86,12 +135,12 @@ public class AIController : ControllerBase
                 {
                     var submittedPo = await _erpTools.SubmitPurchaseOrderForApprovalAsync(draftPo.PurchaseOrderGuid);
                     string poCode = draftPo.PurchaseOrderGuid.ToString().Substring(0, 8).ToUpper();
-                    explanation = $"I found {suppliers.Count} suppliers. I've prepared PO-{poCode} for 20 laptops with {supplier.Name} and submitted it for approval.";
+                    explanation = $"### ✅ Purchase Order Created & Submitted\n\n- **PO Number:** `PO-{poCode}`\n- **Product:** {laptop?.Name ?? "ThinkPad"}\n- **Quantity:** **20 units**\n- **Supplier:** {supplier.Name}\n- **Unit Price:** ${unitPrice:F2}\n- **Total Amount:** **${(unitPrice * 20):F2}**\n- **Status:** 🟡 **Submitted** (Pending Manager Approval)";
                     dataResult = submittedPo ?? draftPo;
                 }
                 else
                 {
-                    explanation = $"I found {suppliers.Count} suppliers, but failed to create the draft purchase order.";
+                    explanation = $"### ❌ Draft Failed\n\nFound supplier {supplier.Name}, but could not create draft PO in database.";
                     dataResult = suppliers;
                 }
             }
@@ -103,12 +152,24 @@ public class AIController : ControllerBase
             dataResult = lowStock;
             if (lowStock.Count == 0)
             {
-                explanation = "Checked inventory via `get_low_stock_products()`. Currently, all product stock levels are healthy with zero items below reorder thresholds.";
+                explanation = "### 🟢 All Stock Levels Healthy\n\nAll inventory items are currently above their minimum safety reorder thresholds.";
             }
             else
             {
-                var itemsList = string.Join(", ", lowStock.Select(i => $"Product SKU {i.SKU} (Available: {i.Quantity}, Reorder Level: {i.MinimumStock})"));
-                explanation = $"Executed `get_low_stock_products()`. Found {lowStock.Count} low stock product(s): {itemsList}.";
+                var sb = new StringBuilder();
+                sb.AppendLine("### ⚠️ Low Stock Inventory Alert");
+                sb.AppendLine();
+                sb.AppendLine($"Identified **{lowStock.Count} product(s)** below safety reorder threshold:");
+                sb.AppendLine();
+                sb.AppendLine("| Product Name | SKU | Available Qty | Warehouse | Safety Min | Status |");
+                sb.AppendLine("| :--- | :--- | :---: | :--- | :---: | :--- |");
+                foreach (var i in lowStock)
+                {
+                    sb.AppendLine($"| {i.ProductName} | `{i.SKU}` | **{i.Quantity}** | {i.WarehouseCode} | {i.MinimumStock} | ⚠️ Low Stock |");
+                }
+                sb.AppendLine();
+                sb.AppendLine("💡 **Action Recommended:** Prepare a purchase order to replenish items below minimum thresholds.");
+                explanation = sb.ToString().Trim();
             }
         }
         else if (prompt.Contains("supplier") || prompt.Contains("vendor"))
@@ -116,16 +177,36 @@ public class AIController : ControllerBase
             toolCalled = "get_suppliers";
             var suppliers = await _erpTools.GetSuppliersAsync();
             dataResult = suppliers;
-            var supList = string.Join(", ", suppliers.Select(s => $"{s.Name} ({s.SupplierCode})"));
-            explanation = $"Executed `get_suppliers()`. Found {suppliers.Count} active verified supplier(s): {supList}.";
+            var sb = new StringBuilder();
+            sb.AppendLine($"### 🤝 Active Verified Suppliers");
+            sb.AppendLine();
+            sb.AppendLine($"Found **{suppliers.Count} registered supplier(s)** ready for procurement:");
+            sb.AppendLine();
+            sb.AppendLine("| Supplier Code | Company Name | Email Contact | Phone | Hub Location |");
+            sb.AppendLine("| :--- | :--- | :--- | :--- | :--- |");
+            foreach (var s in suppliers)
+            {
+                sb.AppendLine($"| `{s.SupplierCode}` | **{s.Name}** | {s.Email} | {s.Phone} | {s.Address} |");
+            }
+            explanation = sb.ToString().Trim();
         }
         else if (prompt.Contains("purchase order") || prompt.Contains("po"))
         {
             toolCalled = "get_purchase_orders";
             var pos = await _erpTools.GetPurchaseOrdersAsync();
             dataResult = pos;
-            var poSummary = string.Join(", ", pos.Select(po => $"PO #{po.PurchaseOrderGuid.ToString().Substring(0, 8)} (Status: {po.Status}, Total: ${po.TotalAmount})"));
-            explanation = $"Executed `get_purchase_orders()`. Retrieved {pos.Count} purchase order(s): {poSummary}.";
+            var sb = new StringBuilder();
+            sb.AppendLine($"### 📋 Procurement Purchase Orders");
+            sb.AppendLine();
+            sb.AppendLine($"Retrieved **{pos.Count} purchase order(s)** from system:");
+            sb.AppendLine();
+            sb.AppendLine("| PO Number | Status | Total Amount | Order Date |");
+            sb.AppendLine("| :--- | :---: | :---: | :--- |");
+            foreach (var po in pos)
+            {
+                sb.AppendLine($"| `{po.PONumber}` | {po.Status} | **${po.TotalAmount:F2}** | {po.OrderDate:yyyy-MM-dd} |");
+            }
+            explanation = sb.ToString().Trim();
         }
         else
         {
@@ -133,19 +214,10 @@ public class AIController : ControllerBase
             var products = await _erpTools.GetAllProductsAsync();
             var suppliers = await _erpTools.GetSuppliersAsync();
             dataResult = new { products, suppliers };
-            explanation = $"Processed prompt using ERP AI agent tools. Retrieved {products.Count} products and {suppliers.Count} suppliers from system services.";
+            explanation = $"### 📊 ERP System Summary\n\n- **Total Products in Catalog:** **{products.Count}**\n- **Active Suppliers:** **{suppliers.Count}**\n\nAll microservices are operational.";
         }
 
-        return Ok(new
-        {
-            success = true,
-            data = new
-            {
-                response = explanation,
-                toolCalled,
-                result = dataResult
-            }
-        });
+        return (explanation, dataResult, toolCalled);
     }
 }
 
