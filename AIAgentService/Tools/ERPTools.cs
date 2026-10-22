@@ -203,4 +203,33 @@ public class ERPTools : IERPTools
             return new List<PurchaseOrderResultDto>();
         }
     }
+
+    public async Task<PurchaseOrderResultDto?> GetPurchaseOrderByGuidAsync(Guid purchaseOrderGuid)
+    {
+        try
+        {
+            _logger.LogInformation("[Tool Call] Fetching purchase order {POGuid} from ProcurementService...", purchaseOrderGuid);
+            return await _procurementClient.GetFromJsonAsync<PurchaseOrderResultDto>($"/api/purchaseorders/{purchaseOrderGuid}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch purchase order details.");
+            return null;
+        }
+    }
+
+    public async Task<List<StockTransactionDto>> GetStockTransactionsAsync()
+    {
+        try
+        {
+            _logger.LogInformation("[Tool Call] Fetching stock transactions from InventoryService...");
+            var result = await _inventoryClient.GetFromJsonAsync<List<StockTransactionDto>>("/api/inventory/transactions");
+            return result ?? new List<StockTransactionDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch stock transactions.");
+            return new List<StockTransactionDto>();
+        }
+    }
 }

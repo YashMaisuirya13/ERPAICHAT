@@ -1,7 +1,10 @@
 using AIAgentService.AI;
+using AIAgentService.Data;
 using AIAgentService.Handlers;
+using AIAgentService.Services;
 using AIAgentService.Tools;
 using AIAgentService.Tools.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Shared.Events.Extensions;
 using Shared.Events.Middleware;
 
@@ -39,6 +42,13 @@ builder.Services.AddHttpClient("ProcurementService", client =>
 builder.Services.AddScoped<IERPTools, ERPTools>();
 builder.Services.AddScoped<IERPToolRegistry, ERPToolRegistry>();
 
+// Register Database Context & Chat History Service
+builder.Services.AddDbContext<AIAgentDbContext>(options =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("AIAgentDatabase"));
+});
+builder.Services.AddScoped<IChatHistoryService, ChatHistoryService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -71,5 +81,21 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+// Initialize Database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AIAgentDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        await dbContext.Database.EnsureCreatedAsync();
+        logger.LogInformation("[AIAgentService] ERP_AIAgentDb verified/created successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "[AIAgentService] Failed to initialize ERP_AIAgentDb database.");
+    }
+}
 
 app.Run();

@@ -315,6 +315,8 @@ public class NemotronService : INemotronService
                 "get_inventory" => FormatInventory(root),
                 "get_suppliers" => FormatSuppliers(root),
                 "get_purchase_orders" => FormatPurchaseOrders(root),
+                "get_purchase_order_details" => FormatPurchaseOrderDetails(root),
+                "get_stock_transactions" => FormatStockTransactions(root),
                 "create_purchase_order" => FormatCreatedPurchaseOrder(root),
                 _ => FormatGenericToolResult(toolName, root)
             };
@@ -509,6 +511,109 @@ public class NemotronService : INemotronService
         sb.AppendLine($"- **Status:** 🟡 **{status}** (Pending Manager Approval)");
         sb.AppendLine();
         sb.AppendLine("📋 You can review and approve this order under the **Purchase Orders** dashboard.");
+        return sb.ToString().Trim();
+    }
+
+    private static string FormatPurchaseOrderDetails(JsonElement root)
+    {
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            return $"### ❌ Purchase Order Search\n\n{errProp.GetString()}";
+        }
+
+        var poNum = root.TryGetProperty("poNumber", out var pp) ? pp.GetString() ?? "" : "";
+        var status = root.TryGetProperty("status", out var sp) ? sp.GetString() ?? "Draft" : "Draft";
+        var supplier = root.TryGetProperty("supplierName", out var supP) ? supP.GetString() ?? "Verified Supplier" : "Verified Supplier";
+        var email = root.TryGetProperty("supplierEmail", out var ep) ? ep.GetString() ?? "-" : "-";
+        var date = root.TryGetProperty("orderDate", out var dp) ? dp.GetString() ?? "" : "";
+        var total = root.TryGetProperty("totalAmount", out var tp) ? tp.GetDecimal().ToString("C2") : "$0.00";
+
+        string statusIcon = status.ToLowerInvariant() switch
+        {
+            "approved" => "✅ Approved",
+            "submitted" => "🟡 Submitted (Pending Approval)",
+            "received" => "📦 Received",
+            "rejected" => "❌ Rejected",
+            _ => $"📝 {status}"
+        };
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### 📋 Purchase Order Details: `{poNum}`");
+        sb.AppendLine();
+        sb.AppendLine($"- **Status:** {statusIcon}");
+        sb.AppendLine($"- **Supplier:** **{supplier}** (`{email}`)");
+        sb.AppendLine($"- **Order Date:** {date}");
+        sb.AppendLine($"- **Total Value:** **{total}**");
+
+        if (root.TryGetProperty("rejectionReason", out var rrp) && !string.IsNullOrWhiteSpace(rrp.GetString()))
+        {
+            sb.AppendLine($"- ⚠️ **Rejection Reason:** {rrp.GetString()}");
+        }
+        if (root.TryGetProperty("approvedAt", out var ap) && !string.IsNullOrWhiteSpace(ap.GetString()))
+        {
+            sb.AppendLine($"- ✅ **Approved At:** {ap.GetString()}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("#### 📦 Order Line Items");
+        sb.AppendLine();
+        sb.AppendLine("| Product Name | SKU | Quantity | Unit Price | Total |");
+        sb.AppendLine("| :--- | :--- | :---: | :---: | :---: |");
+
+        if (root.TryGetProperty("items", out var itemsProp) && itemsProp.ValueKind == JsonValueKind.Array && itemsProp.GetArrayLength() > 0)
+        {
+            foreach (var item in itemsProp.EnumerateArray())
+            {
+                var pName = item.TryGetProperty("productName", out var np) ? np.GetString() ?? "" : "";
+                var sku = item.TryGetProperty("sku", out var skp) ? skp.GetString() ?? "" : "";
+                var qty = item.TryGetProperty("quantity", out var qp) ? qp.GetInt32().ToString() : "0";
+                var unitPrice = item.TryGetProperty("unitPrice", out var up) ? up.GetDecimal().ToString("C2") : "$0.00";
+                var lineTotal = item.TryGetProperty("totalAmount", out var ltp) ? ltp.GetDecimal().ToString("C2") : "$0.00";
+
+                sb.AppendLine($"| {pName} | `{sku}` | **{qty}** | {unitPrice} | **{lineTotal}** |");
+            }
+        }
+        else
+        {
+            sb.AppendLine("| *No individual line items registered* | - | - | - | - |");
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    private static string FormatStockTransactions(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
+        {
+            return "### 📜 Stock Movement History\n\nNo stock movement transactions recorded matching your filter.";
+        }
+
+        var sb = new StringBuilder();
+        int count = root.GetArrayLength();
+        sb.AppendLine("### 📜 Stock Movement History & Audit Log");
+        sb.AppendLine();
+        sb.AppendLine($"Showing **{count} recent stock movement transactions**:");
+        sb.AppendLine();
+        sb.AppendLine("| Date | Product | SKU | Type | Qty | Warehouse | Ref / Note |");
+        sb.AppendLine("| :--- | :--- | :--- | :---: | :---: | :--- | :--- |");
+
+        foreach (var item in root.EnumerateArray())
+        {
+            var date = item.TryGetProperty("date", out var dp) ? dp.GetString() ?? "" : "";
+            var name = item.TryGetProperty("productName", out var np) ? np.GetString() ?? "" : "";
+            var sku = item.TryGetProperty("sku", out var sp) ? sp.GetString() ?? "" : "";
+            var type = item.TryGetProperty("type", out var tp) ? tp.GetString() ?? "" : "";
+            var qty = item.TryGetProperty("quantity", out var qp) ? qp.GetInt32().ToString() : "0";
+            var wh = item.TryGetProperty("warehouse", out var wp) ? wp.GetString() ?? "" : "";
+            var r = item.TryGetProperty("referenceNumber", out var rp) ? rp.GetString() ?? "-" : "-";
+
+            string badge = type.Equals("StockIn", StringComparison.OrdinalIgnoreCase)
+                ? $"🟢 +{qty}"
+                : $"🔴 -{qty}";
+
+            sb.AppendLine($"| {date} | {name} | `{sku}` | `{type}` | {badge} | {wh} | {r} |");
+        }
+
         return sb.ToString().Trim();
     }
 

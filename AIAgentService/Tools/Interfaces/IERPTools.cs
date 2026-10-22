@@ -8,6 +8,7 @@ public interface IERPTools
     Task<List<InventoryItemDto>> GetLowStockProductsAsync();
     Task<List<ProductItemDto>> GetAllProductsAsync();
     Task<List<InventoryItemDto>> GetProductInventoryAsync(int productId);
+    Task<List<StockTransactionDto>> GetStockTransactionsAsync();
 
     // Supplier Tools
     Task<List<SupplierItemDto>> GetSuppliersAsync();
@@ -19,4 +20,5 @@ public interface IERPTools
     Task<PurchaseOrderResultDto?> ApprovePurchaseOrderAsync(Guid purchaseOrderGuid);
     Task<PurchaseOrderResultDto?> RejectPurchaseOrderAsync(Guid purchaseOrderGuid, string reason);
     Task<List<PurchaseOrderResultDto>> GetPurchaseOrdersAsync();
+    Task<PurchaseOrderResultDto?> GetPurchaseOrderByGuidAsync(Guid purchaseOrderGuid);
 }

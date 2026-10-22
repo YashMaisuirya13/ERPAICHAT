@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using System.Text;
 using AIAgentService.AI;
+using AIAgentService.Services;
 using AIAgentService.Tools.DTOs;
 using AIAgentService.Tools.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -13,13 +15,51 @@ public class AIController : ControllerBase
 {
     private readonly IAIService _aiService;
     private readonly IERPTools _erpTools;
+    private readonly IChatHistoryService _chatHistoryService;
     private readonly ILogger<AIController> _logger;
 
-    public AIController(IAIService aiService, IERPTools erpTools, ILogger<AIController> logger)
+    public AIController(
+        IAIService aiService,
+        IERPTools erpTools,
+        IChatHistoryService chatHistoryService,
+        ILogger<AIController> logger)
     {
         _aiService = aiService;
         _erpTools = erpTools;
+        _chatHistoryService = chatHistoryService;
         _logger = logger;
+    }
+
+    [HttpGet("conversations")]
+    public async Task<IActionResult> GetConversations()
+    {
+        string? userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name;
+        var conversations = await _chatHistoryService.GetConversationsAsync(userId);
+        return Ok(conversations);
+    }
+
+    [HttpGet("conversations/{guid:guid}")]
+    public async Task<IActionResult> GetConversation(Guid guid)
+    {
+        string? userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name;
+        var conversation = await _chatHistoryService.GetConversationAsync(guid, userId);
+        if (conversation == null)
+        {
+            return NotFound(new { message = $"Conversation '{guid}' not found." });
+        }
+        return Ok(conversation);
+    }
+
+    [HttpDelete("conversations/{guid:guid}")]
+    public async Task<IActionResult> DeleteConversation(Guid guid)
+    {
+        string? userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name;
+        bool deleted = await _chatHistoryService.DeleteConversationAsync(guid, userId);
+        if (!deleted)
+        {
+            return NotFound(new { message = $"Conversation '{guid}' not found." });
+        }
+        return Ok(new { success = true, message = "Conversation deleted." });
     }
 
     [HttpPost("chat")]
@@ -33,16 +73,28 @@ public class AIController : ControllerBase
             });
         }
 
-        _logger.LogInformation("[AIController] Received Chat Prompt: {Prompt} (Active Provider: {Provider})", 
-            request.Prompt, _aiService.ProviderName);
+        string? userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name;
+
+        // Persist or retrieve chat conversation in database
+        var conversation = await _chatHistoryService.GetOrCreateConversationAsync(request.ConversationGuid, request.Prompt, userId);
+
+        // Save User prompt to database
+        await _chatHistoryService.SaveMessageAsync(conversation.Id, "user", request.Prompt, null, null);
+
+        _logger.LogInformation("[AIController] Received Chat Prompt: {Prompt} (Session: {SessionGuid}, Provider: {Provider})", 
+            request.Prompt, conversation.ConversationGuid, _aiService.ProviderName);
 
         try
         {
             var result = await _aiService.ExecuteChatAgentAsync(request.Prompt);
 
+            // Save AI response to database
+            await _chatHistoryService.SaveMessageAsync(conversation.Id, "ai", result.Response, result.ToolCalled, result.ToolResult);
+
             return Ok(new
             {
                 success = true,
+                conversationGuid = conversation.ConversationGuid,
                 source = _aiService.ProviderName,
                 data = new
                 {
@@ -60,9 +112,13 @@ public class AIController : ControllerBase
 
             var (explanation, dataResult, toolCalled) = await ExecuteLocalERPToolsAsync(request.Prompt);
 
+            // Save Fallback AI response to database
+            await _chatHistoryService.SaveMessageAsync(conversation.Id, "ai", explanation, toolCalled, dataResult);
+
             return Ok(new
             {
                 success = true,
+                conversationGuid = conversation.ConversationGuid,
                 source = "Local-ERP-Tools-Fallback",
                 data = new
                 {
@@ -224,4 +280,5 @@ public class AIController : ControllerBase
 public class ChatRequest
 {
     public string Prompt { get; set; } = string.Empty;
+    public Guid? ConversationGuid { get; set; }
 }

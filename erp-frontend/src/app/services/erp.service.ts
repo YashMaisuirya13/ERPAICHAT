@@ -78,7 +78,23 @@ export class ErpService {
     return this.http.post(`${this.gatewayUrl}/purchaseorders/${id}/cancel`, {});
   }
 
-  askAi(prompt: string): Observable<any> {
-    return this.http.post(`${this.gatewayUrl}/ai/chat`, { prompt });
+  askAi(prompt: string, conversationGuid?: string): Observable<any> {
+    const payload: any = { prompt };
+    if (conversationGuid) {
+      payload.conversationGuid = conversationGuid;
+    }
+    return this.http.post(`${this.gatewayUrl}/ai/chat`, payload);
+  }
+
+  getAiConversations(): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/ai/conversations`);
+  }
+
+  getAiConversation(guid: string): Observable<any> {
+    return this.http.get(`${this.gatewayUrl}/ai/conversations/${guid}`);
+  }
+
+  deleteAiConversation(guid: string): Observable<any> {
+    return this.http.delete(`${this.gatewayUrl}/ai/conversations/${guid}`);
   }
 }

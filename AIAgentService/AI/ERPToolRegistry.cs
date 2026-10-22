@@ -73,11 +73,18 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "get_suppliers",
-                    description = "Get active verified suppliers and contact info.",
+                    description = "Get active verified suppliers and contact info. Pass optional supplierName to search.",
                     parameters = new
                     {
                         type = "object",
-                        properties = new { }
+                        properties = new
+                        {
+                            supplierName = new
+                            {
+                                type = "string",
+                                description = "Optional supplier name or code keyword (e.g. Lenovo, Dell, TechSupply). Omit for all."
+                            }
+                        }
                     }
                 }
             },
@@ -97,6 +104,49 @@ public class ERPToolRegistry : IERPToolRegistry
                             {
                                 type = "string",
                                 description = "Filter by status: Draft, Submitted, Approved, or Received."
+                            }
+                        }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_purchase_order_details",
+                    description = "Get comprehensive details and line items for a specific purchase order by PO Number or ID.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            poNumber = new
+                            {
+                                type = "string",
+                                description = "The purchase order code (e.g. PO-1001, PO-1002) or purchase order GUID."
+                            }
+                        },
+                        required = new[] { "poNumber" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "get_stock_transactions",
+                    description = "Get recent warehouse stock movements (Stock-In and Stock-Out audit logs) with timestamps, quantities, and reference notes.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            productName = new
+                            {
+                                type = "string",
+                                description = "Optional product name or SKU keyword filter (e.g. laptop, thinkpad, monitor). Omit for all."
                             }
                         }
                     }
@@ -190,8 +240,18 @@ public class ERPToolRegistry : IERPToolRegistry
 
             case "get_suppliers":
             {
+                string? filterName = null;
+                if (root.HasValue && root.Value.TryGetProperty("supplierName", out var sNameProp))
+                {
+                    filterName = sNameProp.GetString()?.ToLowerInvariant();
+                }
+
                 var suppliers = await _erpTools.GetSuppliersAsync();
-                var result = suppliers.Select(s => new
+                var filtered = string.IsNullOrWhiteSpace(filterName)
+                    ? suppliers
+                    : suppliers.Where(s => s.Name.ToLower().Contains(filterName) || s.SupplierCode.ToLower().Contains(filterName)).ToList();
+
+                var result = filtered.Select(s => new
                 {
                     supplierCode = s.SupplierCode,
                     name = s.Name,
@@ -224,6 +284,100 @@ public class ERPToolRegistry : IERPToolRegistry
                     orderDate = po.OrderDate.ToString("yyyy-MM-dd"),
                     guid = po.PurchaseOrderGuid
                 }).ToList();
+
+                return (JsonSerializer.Serialize(result, s_jsonOptions), result);
+            }
+
+            case "get_purchase_order_details":
+            {
+                string? targetPoNumber = null;
+                if (root.HasValue && root.Value.TryGetProperty("poNumber", out var poProp))
+                {
+                    targetPoNumber = poProp.GetString()?.Trim();
+                }
+
+                if (string.IsNullOrWhiteSpace(targetPoNumber))
+                {
+                    var err = new { error = "Purchase Order number or ID is required." };
+                    return (JsonSerializer.Serialize(err, s_jsonOptions), err);
+                }
+
+                var pos = await _erpTools.GetPurchaseOrdersAsync();
+                var targetPo = pos.FirstOrDefault(p =>
+                    p.PONumber.Equals(targetPoNumber, StringComparison.OrdinalIgnoreCase) ||
+                    p.PurchaseOrderGuid.ToString().Equals(targetPoNumber, StringComparison.OrdinalIgnoreCase) ||
+                    p.PONumber.ToLower().Contains(targetPoNumber.ToLower()));
+
+                if (targetPo == null)
+                {
+                    var err = new { error = $"Purchase Order '{targetPoNumber}' was not found in the system." };
+                    return (JsonSerializer.Serialize(err, s_jsonOptions), err);
+                }
+
+                // Fetch detailed PO with line items
+                var detailedPo = await _erpTools.GetPurchaseOrderByGuidAsync(targetPo.PurchaseOrderGuid) ?? targetPo;
+
+                // Resolve supplier name and product names for line items
+                var suppliers = await _erpTools.GetSuppliersAsync();
+                var supplier = suppliers.FirstOrDefault(s => s.SupplierGuid == detailedPo.SupplierGuid);
+                var products = await _erpTools.GetAllProductsAsync();
+
+                var lineItems = detailedPo.Items.Select(item =>
+                {
+                    var product = products.FirstOrDefault(p => p.ProductGuid == item.ProductGuid);
+                    return new
+                    {
+                        productName = product?.Name ?? "Product Item",
+                        sku = product?.SKU ?? "-",
+                        quantity = item.Quantity,
+                        unitPrice = item.UnitPrice,
+                        totalAmount = item.TotalAmount
+                    };
+                }).ToList();
+
+                var detailedResult = new
+                {
+                    poNumber = detailedPo.PONumber,
+                    status = detailedPo.Status,
+                    supplierName = supplier?.Name ?? "Verified Supplier",
+                    supplierEmail = supplier?.Email ?? "-",
+                    orderDate = detailedPo.OrderDate.ToString("yyyy-MM-dd"),
+                    approvedAt = detailedPo.ApprovedAt?.ToString("yyyy-MM-dd HH:mm"),
+                    rejectionReason = detailedPo.RejectionReason,
+                    totalAmount = detailedPo.TotalAmount,
+                    itemsCount = lineItems.Count,
+                    items = lineItems
+                };
+
+                return (JsonSerializer.Serialize(detailedResult, s_jsonOptions), detailedResult);
+            }
+
+            case "get_stock_transactions":
+            {
+                string? query = null;
+                if (root.HasValue && root.Value.TryGetProperty("productName", out var pProp))
+                {
+                    query = pProp.GetString()?.ToLowerInvariant();
+                }
+
+                var transactions = await _erpTools.GetStockTransactionsAsync();
+                var filtered = string.IsNullOrWhiteSpace(query)
+                    ? transactions
+                    : transactions.Where(t => t.ProductName.ToLower().Contains(query) || t.SKU.ToLower().Contains(query)).ToList();
+
+                var result = filtered
+                    .OrderByDescending(t => t.TransactionDate)
+                    .Take(25)
+                    .Select(t => new
+                    {
+                        productName = t.ProductName,
+                        sku = t.SKU,
+                        type = t.TransactionType,
+                        quantity = t.Quantity,
+                        warehouse = t.WarehouseCode,
+                        date = t.TransactionDate.ToString("yyyy-MM-dd HH:mm"),
+                        referenceNumber = t.ReferenceNumber ?? "-"
+                    }).ToList();
 
                 return (JsonSerializer.Serialize(result, s_jsonOptions), result);
             }

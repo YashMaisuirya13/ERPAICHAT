@@ -23,6 +23,47 @@
 
   <!-- Chat Main Area -->
   <div class="chat-wrapper">
+    <!-- Chat History Sidebar -->
+    <div class="chat-sidebar">
+      <button class="btn-new-chat" (click)="startNewChat()" [disabled]="isLoading">
+        <span class="icon">✨</span>
+        <span>+ New Chat</span>
+      </button>
+
+      <div class="sidebar-header">
+        <span class="sidebar-title">Past Conversations</span>
+        <button class="btn-refresh" (click)="loadConversations()" [disabled]="isLoadingConversations" title="Refresh">
+          <span class="refresh-icon" [class.spinning]="isLoadingConversations">🔄</span>
+        </button>
+      </div>
+
+      <div class="conversations-list">
+        <div *ngIf="isLoadingConversations && conversations.length === 0" class="sidebar-loading">
+          Loading history...
+        </div>
+
+        <div *ngIf="!isLoadingConversations && conversations.length === 0" class="sidebar-empty">
+          <span>No saved conversations yet.</span>
+        </div>
+
+        <div 
+          *ngFor="let c of conversations"
+          class="conversation-item"
+          [class.active]="c.conversationGuid === activeConversationGuid"
+          (click)="selectConversation(c.conversationGuid)">
+          
+          <div class="item-icon">💬</div>
+          <div class="item-info">
+            <div class="item-title" [title]="c.title">{{ c.title }}</div>
+            <div class="item-meta">{{ c.updatedAt | date:'shortDate' }} • {{ c.messageCount }} msgs</div>
+          </div>
+          <button class="btn-delete-conv" (click)="deleteConversation(c.conversationGuid, $event)" title="Delete Chat">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="chat-card">
       
       <!-- Top Bar with Quick Prompts -->

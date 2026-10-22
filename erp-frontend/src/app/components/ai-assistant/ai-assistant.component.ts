@@ -33,6 +33,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   activeProvider = 'NVIDIA Nemotron 3 Ultra';
 
   messages: ChatMessage[] = [];
+  conversations: any[] = [];
+  activeConversationGuid: string | null = null;
+  isLoadingConversations = false;
 
   quickPrompts = [
     { label: '⚠️ Check Low Stock', prompt: 'Check all low stock inventory items and alert me about products below minimum threshold.' },
@@ -53,15 +56,94 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   ) {}
 
   ngOnInit(): void {
-    this.addAiMessage(
-      'Hello! I am your **ERP AI Copilot**, powered by **NVIDIA Nemotron 3 Ultra** and integrated with your live Inventory, Supplier, and Procurement microservices.\n\nHow can I help you manage stock, vendors, or purchase orders today?',
-      'NVIDIA-Nemotron-3-Ultra'
-    );
+    this.startNewChat();
+    this.loadConversations();
 
     this.route.queryParams.subscribe(params => {
       if (params['prompt']) {
         this.currentInput = params['prompt'];
         setTimeout(() => this.sendMessage(), 400);
+      }
+    });
+  }
+
+  loadConversations(): void {
+    this.isLoadingConversations = true;
+    this.erpService.getAiConversations().subscribe({
+      next: (data: any) => {
+        this.conversations = data || [];
+        this.isLoadingConversations = false;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        console.warn('Failed to load chat history:', err);
+        this.isLoadingConversations = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  selectConversation(guid: string): void {
+    if (this.isLoading || this.activeConversationGuid === guid) return;
+    this.activeConversationGuid = guid;
+    this.isLoading = true;
+    this.messages = [];
+    this.cdr.detectChanges();
+
+    this.erpService.getAiConversation(guid).subscribe({
+      next: (detail: any) => {
+        this.isLoading = false;
+        if (detail && detail.messages && detail.messages.length > 0) {
+          this.messages = detail.messages.map((m: any) => ({
+            id: m.messageGuid,
+            sender: m.sender,
+            text: m.text,
+            formattedHtml: m.sender === 'ai' ? this.formatMarkdown(m.text) : this.sanitizer.bypassSecurityTrustHtml(this.escapeHtml(m.text)),
+            timestamp: new Date(m.timestamp),
+            toolCalled: m.toolCalled,
+            dataResult: m.dataResult,
+            source: m.sender === 'ai' ? (m.toolCalled ? 'Local ERP Tools' : 'NVIDIA Nemotron') : undefined
+          }));
+        } else {
+          this.startNewChat();
+        }
+        this.shouldScroll = true;
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.isLoading = false;
+        console.error('Failed to load conversation details:', err);
+        this.startNewChat();
+      }
+    });
+  }
+
+  startNewChat(): void {
+    if (this.isLoading) return;
+    this.activeConversationGuid = null;
+    this.messages = [];
+    this.addAiMessage(
+      'Hello! I am your **ERP AI Copilot**, powered by **NVIDIA Nemotron 3 Ultra** and integrated with your live Inventory, Supplier, and Procurement microservices.\n\nHow can I help you manage stock, vendors, or purchase orders today?',
+      'NVIDIA-Nemotron-3-Ultra'
+    );
+    this.shouldScroll = true;
+    this.cdr.detectChanges();
+  }
+
+  deleteConversation(guid: string, event: Event): void {
+    event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this conversation?')) return;
+
+    this.erpService.deleteAiConversation(guid).subscribe({
+      next: () => {
+        this.conversations = this.conversations.filter(c => c.conversationGuid !== guid);
+        if (this.activeConversationGuid === guid) {
+          this.startNewChat();
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        console.error('Failed to delete conversation:', err);
       }
     });
   }
@@ -91,9 +173,14 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.shouldScroll = true;
     this.cdr.detectChanges();
 
-    this.erpService.askAi(text).subscribe({
+    this.erpService.askAi(text, this.activeConversationGuid || undefined).subscribe({
       next: (res: any) => {
         this.isLoading = false;
+
+        if (res?.conversationGuid) {
+          this.activeConversationGuid = res.conversationGuid;
+          this.loadConversations();
+        }
 
         let rawResponse = '';
         if (typeof res?.response === 'string') {
