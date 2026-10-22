@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
@@ -40,5 +42,31 @@ public static class JwtExtensions
 
         services.AddAuthorization();
         return services;
+    }
+
+    public static string GenerateSystemToken(IConfiguration configuration, string username = "AIAgentSystem", string role = "Admin")
+    {
+        var jwtSettings = configuration.GetSection("JwtSettings");
+        var secretKey = jwtSettings["SecretKey"] ?? "SuperSecretKeyForErpAiChatJwtTokenSecurity2026!LongEnoughForHmacSha256";
+        var issuer = jwtSettings["Issuer"] ?? "ERP.ApiGateway";
+        var audience = jwtSettings["Audience"] ?? "ERP.Services";
+
+        var key = Encoding.ASCII.GetBytes(secretKey);
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.Name, username),
+                new Claim(ClaimTypes.Role, role)
+            }),
+            Expires = DateTime.UtcNow.AddHours(24),
+            Issuer = issuer,
+            Audience = audience,
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        };
+
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        return tokenHandler.WriteToken(token);
     }
 }

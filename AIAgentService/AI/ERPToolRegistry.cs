@@ -38,7 +38,7 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "get_inventory",
-                    description = "Get current warehouse inventory stock levels, unit prices, and warehouse locations. Use this when the user asks about stock, product availability, or warehouse quantities.",
+                    description = "Get warehouse inventory stock levels, prices, and locations. Pass productName to filter.",
                     parameters = new
                     {
                         type = "object",
@@ -47,7 +47,7 @@ public class ERPToolRegistry : IERPToolRegistry
                             productName = new
                             {
                                 type = "string",
-                                description = "Optional product name or search keyword (e.g. 'laptop', 'ThinkPad', 'monitor', 'mouse', 'switch', 'desk'). Leave empty to see all products."
+                                description = "Product keyword (e.g. laptop, thinkpad, monitor, mouse, switch). Omit for all."
                             }
                         }
                     }
@@ -59,7 +59,7 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "get_low_stock_alerts",
-                    description = "Get products whose current warehouse inventory is at or below the minimum safety reorder threshold.",
+                    description = "Get products currently at or below safety reorder threshold.",
                     parameters = new
                     {
                         type = "object",
@@ -73,7 +73,7 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "get_suppliers",
-                    description = "Get active verified suppliers in the registry including supplier code, contact email, phone, and hub address.",
+                    description = "Get active verified suppliers and contact info.",
                     parameters = new
                     {
                         type = "object",
@@ -87,7 +87,7 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "get_purchase_orders",
-                    description = "Get recent purchase orders from the procurement system with their status (Draft, Submitted, Approved, Received) and total dollar values.",
+                    description = "Get purchase orders. Optional status filter: Draft, Submitted, Approved, Received.",
                     parameters = new
                     {
                         type = "object",
@@ -96,7 +96,7 @@ public class ERPToolRegistry : IERPToolRegistry
                             status = new
                             {
                                 type = "string",
-                                description = "Optional filter by status: 'Draft', 'Submitted', 'Approved', or 'Received'."
+                                description = "Filter by status: Draft, Submitted, Approved, or Received."
                             }
                         }
                     }
@@ -108,27 +108,15 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "create_purchase_order",
-                    description = "Create and submit a new purchase order for manager approval in the Procurement database.",
+                    description = "Create and submit a purchase order for approval.",
                     parameters = new
                     {
                         type = "object",
                         properties = new
                         {
-                            productName = new
-                            {
-                                type = "string",
-                                description = "Product name or keyword to order (e.g. 'ThinkPad', 'Dell Laptop', 'Monitor')."
-                            },
-                            quantity = new
-                            {
-                                type = "integer",
-                                description = "Quantity of units to order (e.g. 20)."
-                            },
-                            supplierName = new
-                            {
-                                type = "string",
-                                description = "Optional preferred vendor/supplier name (e.g. 'TechEdge'). If not specified, best matching active supplier will be selected."
-                            }
+                            productName = new { type = "string", description = "Product name (e.g. ThinkPad, Dell Laptop)." },
+                            quantity = new { type = "integer", description = "Quantity to order." },
+                            supplierName = new { type = "string", description = "Optional preferred supplier name." }
                         },
                         required = new[] { "productName", "quantity" }
                     }
