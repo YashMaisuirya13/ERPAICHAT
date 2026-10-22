@@ -64,7 +64,9 @@ public class NemotronService : INemotronService
         var systemMessage = new
         {
             role = "system",
-            content = "You are an intelligent ERP AI Assistant for enterprise resource planning (inventory, suppliers, procurement). You have access to database tools. ONLY call tools when the user asks for specific ERP data or actions. For greetings or general conversation, respond directly without calling any tools."
+            content = "You are an intelligent ERP AI Assistant for enterprise resource planning (inventory, suppliers, procurement). " +
+                      "You have access to database tools. ONLY invoke a tool when the user asks for specific ERP data, inventory, suppliers, or purchase orders. " +
+                      "For greetings, casual conversation, or general questions, respond directly in plain text without invoking any tools."
         };
 
         var userMessage = new
@@ -73,26 +75,17 @@ public class NemotronService : INemotronService
             content = prompt
         };
 
-        // Token Optimization: Only include tools when user prompt indicates an ERP query or action
-        bool includeTools = ShouldIncludeTools(prompt);
-        var tools = includeTools ? _toolRegistry.GetToolDefinitions() : null;
+        var tools = _toolRegistry.GetToolDefinitions();
 
-        object requestBody = tools != null
-            ? new
-            {
-                model,
-                messages = new object[] { systemMessage, userMessage },
-                tools,
-                temperature = 0.2,
-                max_tokens = 512
-            }
-            : new
-            {
-                model,
-                messages = new object[] { systemMessage, userMessage },
-                temperature = 0.2,
-                max_tokens = 512
-            };
+        var requestBody = new
+        {
+            model,
+            messages = new object[] { systemMessage, userMessage },
+            tools,
+            tool_choice = "auto",
+            temperature = 0.1,
+            max_tokens = 256
+        };
 
         var rawResponse = await SendOpenRouterRequestAsync(endpoint, apiKey, requestBody);
         using var doc = JsonDocument.Parse(rawResponse);
@@ -110,41 +103,49 @@ public class NemotronService : INemotronService
 
         var messageElement = choices[0].GetProperty("message");
 
-        // CASE 1: Model requested Tool Calls!
+        // CASE 1: Model requested Tool Calls! (Supports concurrent parallel tool calls)
         if (messageElement.TryGetProperty("tool_calls", out var toolCallsElement) &&
             toolCallsElement.ValueKind == JsonValueKind.Array &&
             toolCallsElement.GetArrayLength() > 0)
         {
-            var firstToolCall = toolCallsElement[0];
-            string toolCallId = firstToolCall.GetProperty("id").GetString() ?? "call_0";
-            var func = firstToolCall.GetProperty("function");
-            string toolName = func.GetProperty("name").GetString() ?? "";
-            string arguments = func.TryGetProperty("arguments", out var argProp) ? argProp.GetString() ?? "{}" : "{}";
-
-            _logger.LogInformation("[NemotronService] [Single-Turn] Model selected tool: '{ToolName}' with args: {Args}", toolName, arguments);
-
-            // Execute the selected tool against the ERP microservices
-            var (resultJson, dataResult) = await _toolRegistry.ExecuteToolAsync(toolName, arguments);
-
-            // Single-Turn Deterministic Formatting:
-            // Eliminates Turn 2 roundtrip latency (0ms format time) and cuts token consumption by 60-80%!
             bool enableTwoTurn = _configuration.GetValue<bool>("Nemotron:EnableTwoTurnSummarization", false);
-            string responseMarkdown;
 
-            if (enableTwoTurn)
+            var toolExecutionTasks = toolCallsElement.EnumerateArray().Select(async toolCall =>
             {
-                responseMarkdown = await ExecuteTurn2SummarizationAsync(endpoint, apiKey, model, userMessage, toolCallId, toolName, arguments, resultJson, fallbackModel);
-            }
-            else
-            {
-                responseMarkdown = FormatToolResultToMarkdown(toolName, resultJson);
-            }
+                string toolCallId = toolCall.TryGetProperty("id", out var idProp) ? idProp.GetString() ?? "call_0" : "call_0";
+                var func = toolCall.GetProperty("function");
+                string toolName = func.GetProperty("name").GetString() ?? "";
+                string arguments = func.TryGetProperty("arguments", out var argProp) ? argProp.GetString() ?? "{}" : "{}";
+
+                _logger.LogInformation("[NemotronService] Executing Tool: '{ToolName}' with args: {Args}", toolName, arguments);
+
+                // Execute the selected tool against the ERP microservices
+                var (resultJson, dataResult) = await _toolRegistry.ExecuteToolAsync(toolName, arguments);
+
+                string responseMarkdown;
+                if (enableTwoTurn)
+                {
+                    responseMarkdown = await ExecuteTurn2SummarizationAsync(endpoint, apiKey, model, userMessage, toolCallId, toolName, arguments, resultJson, fallbackModel);
+                }
+                else
+                {
+                    responseMarkdown = FormatToolResultToMarkdown(toolName, resultJson);
+                }
+
+                return (toolName, responseMarkdown, dataResult);
+            });
+
+            var results = await Task.WhenAll(toolExecutionTasks);
+
+            string combinedMarkdown = string.Join("\n\n---\n\n", results.Select(r => r.responseMarkdown));
+            string executedToolNames = string.Join(", ", results.Select(r => r.toolName));
+            object? combinedDataResult = results.Length == 1 ? results[0].dataResult : results.Select(r => r.dataResult).ToList();
 
             return new AgentChatResult
             {
-                Response = responseMarkdown,
-                ToolCalled = toolName,
-                ToolResult = dataResult
+                Response = combinedMarkdown,
+                ToolCalled = executedToolNames,
+                ToolResult = combinedDataResult
             };
         }
 
@@ -156,44 +157,6 @@ public class NemotronService : INemotronService
             ToolCalled = null,
             ToolResult = null
         };
-    }
-
-    private static bool ShouldIncludeTools(string prompt)
-    {
-        if (string.IsNullOrWhiteSpace(prompt))
-            return false;
-
-        var p = prompt.Trim().ToLowerInvariant();
-
-        // Exact greetings and conversational meta queries without ERP intent
-        string[] simpleGreetings =
-        {
-            "hi", "hello", "hey", "good morning", "good evening", "good afternoon",
-            "howdy", "greetings", "help", "who are you", "what can you do", "thanks",
-            "thank you", "bye", "goodbye", "ok", "okay"
-        };
-
-        if (simpleGreetings.Any(g => p == g || p == g + "!" || p == g + "." || p == g + "?"))
-        {
-            return false;
-        }
-
-        // Keywords that signal ERP query, data inspection, or actions
-        string[] erpKeywords =
-        {
-            "stock", "inventory", "product", "supplier", "vendor", "po", "purchase",
-            "order", "warehouse", "catalog", "buy", "reorder", "quantity", "price",
-            "laptop", "thinkpad", "monitor", "mouse", "desk", "switch", "create",
-            "draft", "alert", "low", "check", "find", "show", "get", "list", "procure"
-        };
-
-        if (erpKeywords.Any(k => p.Contains(k)))
-        {
-            return true;
-        }
-
-        // For longer multi-word prompts, include tools by default for safety
-        return p.Length > 20;
     }
 
     private async Task<string> ExecuteTurn2SummarizationAsync(

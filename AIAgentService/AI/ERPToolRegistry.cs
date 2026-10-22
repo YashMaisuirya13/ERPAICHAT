@@ -158,9 +158,11 @@ public class ERPToolRegistry : IERPToolRegistry
                 }
 
                 var products = await _erpTools.GetAllProductsAsync();
-                var targetProducts = string.IsNullOrWhiteSpace(query)
+                var targetProducts = (string.IsNullOrWhiteSpace(query)
                     ? products
-                    : products.Where(p => p.Name.ToLower().Contains(query) || p.SKU.ToLower().Contains(query)).ToList();
+                    : products.Where(p => p.Name.ToLower().Contains(query) || p.SKU.ToLower().Contains(query)))
+                    .Take(25)
+                    .ToList();
 
                 var inventoryList = new List<object>();
                 foreach (var p in targetProducts)
