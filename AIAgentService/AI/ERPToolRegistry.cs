@@ -171,6 +171,24 @@ public class ERPToolRegistry : IERPToolRegistry
                         required = new[] { "productName", "quantity" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "approve_purchase_order",
+                    description = "Approve a pending purchase order by PO Number (e.g. PO-2026-0005) or GUID.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            poNumber = new { type = "string", description = "The purchase order code (e.g. PO-2026-0005) or purchase order GUID to approve." }
+                        },
+                        required = new[] { "poNumber" }
+                    }
+                }
             }
         };
     }
@@ -444,6 +462,53 @@ public class ERPToolRegistry : IERPToolRegistry
                 };
 
                 return (JsonSerializer.Serialize(creationResult, s_jsonOptions), creationResult);
+            }
+
+            case "approve_purchase_order":
+            {
+                string? poIdentifier = null;
+                if (root.HasValue && root.Value.TryGetProperty("poNumber", out var poProp))
+                {
+                    poIdentifier = poProp.GetString()?.Trim();
+                }
+
+                if (string.IsNullOrWhiteSpace(poIdentifier))
+                {
+                    return (JsonSerializer.Serialize(new { error = "Purchase order number or GUID is required." }, s_jsonOptions), new { error = "PO identifier required" });
+                }
+
+                Guid poGuid = Guid.Empty;
+                if (!Guid.TryParse(poIdentifier, out poGuid))
+                {
+                    var allPos = await _erpTools.GetPurchaseOrdersAsync();
+                    var match = allPos.FirstOrDefault(p => string.Equals(p.PONumber, poIdentifier, StringComparison.OrdinalIgnoreCase));
+                    if (match != null)
+                    {
+                        poGuid = match.PurchaseOrderGuid;
+                    }
+                }
+
+                if (poGuid == Guid.Empty)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Could not find purchase order '{poIdentifier}'." }, s_jsonOptions), new { error = $"PO '{poIdentifier}' not found" });
+                }
+
+                var approved = await _erpTools.ApprovePurchaseOrderAsync(poGuid);
+                if (approved == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Failed to approve purchase order '{poIdentifier}'. Ensure order is in PendingApproval status and caller has Manager/Admin permissions." }, s_jsonOptions), new { error = "Approval failed" });
+                }
+
+                var approveResult = new
+                {
+                    poNumber = approved.PONumber,
+                    status = "Approved",
+                    totalAmount = approved.TotalAmount,
+                    approvedAt = approved.ApprovedAt?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                    message = $"Purchase order {approved.PONumber} has been successfully approved!"
+                };
+
+                return (JsonSerializer.Serialize(approveResult, s_jsonOptions), approveResult);
             }
 
             default:

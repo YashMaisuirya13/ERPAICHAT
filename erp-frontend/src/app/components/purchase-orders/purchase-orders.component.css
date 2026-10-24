@@ -488,6 +488,9 @@
 .status-submitted { background: #fef3c7; color: #b45309; }
 .status-submitted .status-dot { background: #d97706; }
 
+.status-pendingapproval { background: #fef3c7; color: #b45309; }
+.status-pendingapproval .status-dot { background: #d97706; }
+
 .status-approved { background: #ecfdf5; color: #047857; }
 .status-approved .status-dot { background: #10b981; }
 

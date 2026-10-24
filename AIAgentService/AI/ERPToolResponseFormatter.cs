@@ -21,6 +21,7 @@ public static class ERPToolResponseFormatter
                 "get_purchase_order_details" => FormatPurchaseOrderDetails(root),
                 "get_stock_transactions" => FormatStockTransactions(root),
                 "create_purchase_order" => FormatCreatedPurchaseOrder(root),
+                "approve_purchase_order" => FormatApprovedPurchaseOrder(root),
                 _ => FormatGenericToolResult(toolName, root)
             };
         }
@@ -347,5 +348,27 @@ public static class ERPToolResponseFormatter
         }
 
         return sb.ToString().Trim();
+    }
+
+    private static string FormatApprovedPurchaseOrder(JsonElement root)
+    {
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            return $"### ❌ Approval Failed\n\n{errProp.GetString()}";
+        }
+
+        var po = root.TryGetProperty("poNumber", out var pop) ? pop.GetString() : "PO";
+        var amount = root.TryGetProperty("totalAmount", out var am) ? am.GetDecimal().ToString("C") : "$0.00";
+        var approvedAt = root.TryGetProperty("approvedAt", out var ap) ? ap.GetString() : DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### ✅ Purchase Order Approved: `{po}`");
+        sb.AppendLine();
+        sb.AppendLine($"- **Status:** ✅ Approved");
+        sb.AppendLine($"- **Total Amount:** {amount}");
+        sb.AppendLine($"- **Approved At:** {approvedAt}");
+        sb.AppendLine();
+        sb.AppendLine("The purchase order has been marked Approved and the POApprovedEvent has been broadcast to inventory.");
+        return sb.ToString();
     }
 }

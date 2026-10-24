@@ -216,10 +216,10 @@
                   <span>🚀</span> Submit
                 </button>
 
-                <!-- Submitted -> Approve / Reject -->
+                <!-- Submitted / PendingApproval -> Approve / Reject -->
                 <button 
                   class="btn-act btn-approve" 
-                  *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" 
+                  *ngIf="(po.status === 'Submitted' || po.status === 'PendingApproval') && (userRole === 'Manager' || userRole === 'Admin')" 
                   (click)="approve(po.purchaseOrderGuid || ('' + po.id))" 
                   title="Approve this Purchase Order">
                   <span>✅</span> Approve
@@ -227,7 +227,7 @@
 
                 <button 
                   class="btn-act btn-reject" 
-                  *ngIf="po.status === 'Submitted' && (userRole === 'Manager' || userRole === 'Admin')" 
+                  *ngIf="(po.status === 'Submitted' || po.status === 'PendingApproval') && (userRole === 'Manager' || userRole === 'Admin')" 
                   (click)="reject(po.purchaseOrderGuid || ('' + po.id))" 
                   title="Reject this Purchase Order">
                   <span>❌</span> Reject

@@ -149,7 +149,11 @@ export class PurchaseOrdersComponent implements OnInit {
     }
 
     if (this.statusFilter !== 'all') {
-      list = list.filter(po => po.status.toLowerCase() === this.statusFilter.toLowerCase());
+      if (this.statusFilter === 'submitted') {
+        list = list.filter(po => (po.status || '').toLowerCase() === 'submitted' || (po.status || '').toLowerCase() === 'pendingapproval');
+      } else {
+        list = list.filter(po => (po.status || '').toLowerCase() === this.statusFilter.toLowerCase());
+      }
     }
 
     list.sort((a, b) => {
@@ -282,7 +286,7 @@ export class PurchaseOrdersComponent implements OnInit {
   }
 
   get pendingApprovalCount(): number {
-    return this.purchaseOrders.filter(po => po.status === 'Submitted').length;
+    return this.purchaseOrders.filter(po => po.status === 'Submitted' || po.status === 'PendingApproval').length;
   }
 
   get approvedCount(): number {

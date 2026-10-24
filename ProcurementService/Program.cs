@@ -28,8 +28,9 @@ builder.Services.AddRabbitMqEventBus();
 // Register Repositories
 builder.Services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
 
-// Register CorrelationIdDelegatingHandler
+// Register Inter-Service Delegating Handlers
 builder.Services.AddTransient<CorrelationIdDelegatingHandler>();
+builder.Services.AddTransient<BearerTokenDelegatingHandler>();
 builder.Services.AddHttpContextAccessor();
 
 // Register Inter-Service HTTP Clients with resilience & timeouts
@@ -38,14 +39,16 @@ builder.Services.AddHttpClient<ISupplierClient, SupplierClient>(client =>
     var url = builder.Configuration["ServiceUrls:SupplierService"] ?? "http://localhost:5046";
     client.BaseAddress = new Uri(url);
     client.Timeout = TimeSpan.FromSeconds(5);
-}).AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
+}).AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+  .AddHttpMessageHandler<BearerTokenDelegatingHandler>();
 
 builder.Services.AddHttpClient<IInventoryClient, InventoryClient>(client =>
 {
     var url = builder.Configuration["ServiceUrls:InventoryService"] ?? "http://localhost:5045";
     client.BaseAddress = new Uri(url);
     client.Timeout = TimeSpan.FromSeconds(5);
-}).AddHttpMessageHandler<CorrelationIdDelegatingHandler>();
+}).AddHttpMessageHandler<CorrelationIdDelegatingHandler>()
+  .AddHttpMessageHandler<BearerTokenDelegatingHandler>();
 
 // Register Services
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();

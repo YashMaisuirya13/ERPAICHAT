@@ -202,9 +202,9 @@ public class PurchaseOrderService : IPurchaseOrderService
             return null;
         }
 
-        if (order.Status != "PendingApproval")
+        if (order.Status != "PendingApproval" && order.Status != "Submitted")
         {
-            throw new InvalidOperationException($"Cannot approve Purchase Order in '{order.Status}' status. Only 'PendingApproval' orders can be approved.");
+            throw new InvalidOperationException($"Cannot approve Purchase Order in '{order.Status}' status. Only 'PendingApproval' or 'Submitted' orders can be approved.");
         }
 
         order.Status = "Approved";
@@ -233,9 +233,9 @@ public class PurchaseOrderService : IPurchaseOrderService
             return null;
         }
 
-        if (order.Status != "PendingApproval")
+        if (order.Status != "PendingApproval" && order.Status != "Submitted")
         {
-            throw new InvalidOperationException($"Cannot reject Purchase Order in '{order.Status}' status. Only 'PendingApproval' orders can be rejected.");
+            throw new InvalidOperationException($"Cannot reject Purchase Order in '{order.Status}' status. Only 'PendingApproval' or 'Submitted' orders can be rejected.");
         }
 
         order.Status = "Rejected";
