@@ -78,15 +78,18 @@ public class AIController : ControllerBase
         // Persist or retrieve chat conversation in database
         var conversation = await _chatHistoryService.GetOrCreateConversationAsync(request.ConversationGuid, request.Prompt, userId);
 
+        // Retrieve prior conversation history for stateful multi-turn context (last 10 turns)
+        var recentHistory = await _chatHistoryService.GetRecentMessagesAsync(conversation.Id, 10);
+
         // Save User prompt to database
         await _chatHistoryService.SaveMessageAsync(conversation.Id, "user", request.Prompt, null, null);
 
-        _logger.LogInformation("[AIController] Received Chat Prompt: {Prompt} (Session: {SessionGuid}, Provider: {Provider})", 
-            request.Prompt, conversation.ConversationGuid, _aiService.ProviderName);
+        _logger.LogInformation("[AIController] Received Chat Prompt: {Prompt} (Session: {SessionGuid}, Provider: {Provider}, PriorHistory: {Count})", 
+            request.Prompt, conversation.ConversationGuid, _aiService.ProviderName, recentHistory.Count);
 
         try
         {
-            var result = await _aiService.ExecuteChatAgentAsync(request.Prompt);
+            var result = await _aiService.ExecuteChatAgentAsync(request.Prompt, recentHistory);
 
             // Save AI response to database
             await _chatHistoryService.SaveMessageAsync(conversation.Id, "ai", result.Response, result.ToolCalled, result.ToolResult);

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AIAgentService.AI;
 using AIAgentService.Data;
 using AIAgentService.Data.Entities;
 using AIAgentService.DTOs;
@@ -133,6 +134,25 @@ public class ChatHistoryService : IChatHistoryService
         await _dbContext.SaveChangesAsync();
 
         return newConv;
+    }
+
+    public async Task<List<ChatMessageHistoryItem>> GetRecentMessagesAsync(int conversationId, int limit = 10)
+    {
+        var messages = await _dbContext.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(limit)
+            .ToListAsync();
+
+        return messages
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new ChatMessageHistoryItem
+            {
+                Role = m.Sender,
+                Content = m.Content
+            })
+            .ToList();
     }
 
     public async Task SaveMessageAsync(int conversationId, string sender, string content, string? toolCalled, object? toolResult)

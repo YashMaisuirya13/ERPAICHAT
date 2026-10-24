@@ -17,10 +17,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddTransient<BearerTokenHandler>();
 
-builder.Services.AddHttpClient<INemotronService, NemotronService>();
-builder.Services.AddHttpClient<IClaudeService, ClaudeService>();
-builder.Services.AddHttpClient<IGeminiService, GeminiService>();
-builder.Services.AddScoped<IAIService, AIServiceFactory>();
+builder.Services.AddHttpClient<IAIService, UnifiedAIService>();
 
 // Register HttpClient factories for ERP services with BearerTokenHandler
 builder.Services.AddHttpClient("InventoryService", client =>

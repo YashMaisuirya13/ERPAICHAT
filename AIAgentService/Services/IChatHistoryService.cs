@@ -1,3 +1,4 @@
+using AIAgentService.AI;
 using AIAgentService.Data.Entities;
 using AIAgentService.DTOs;
 
@@ -8,6 +9,7 @@ public interface IChatHistoryService
     Task<List<ChatConversationDto>> GetConversationsAsync(string? userId);
     Task<ChatConversationDetailDto?> GetConversationAsync(Guid conversationGuid, string? userId);
     Task<ChatConversation> GetOrCreateConversationAsync(Guid? conversationGuid, string firstPrompt, string? userId);
+    Task<List<ChatMessageHistoryItem>> GetRecentMessagesAsync(int conversationId, int limit = 10);
     Task SaveMessageAsync(int conversationId, string sender, string content, string? toolCalled, object? toolResult);
     Task<bool> DeleteConversationAsync(Guid conversationGuid, string? userId);
 }
