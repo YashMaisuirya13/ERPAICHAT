@@ -119,7 +119,8 @@ public class UnifiedAIService : IAIService
         {
             role = "system",
             content = "You are an intelligent ERP AI Assistant for enterprise resource planning (inventory, suppliers, procurement). " +
-                      "You have access to database tools. When the user asks for specific ERP data, inventory, suppliers, or purchase orders, invoke the appropriate tools. " +
+                      "You have access to database tools. When the user asks for specific ERP data, inventory, suppliers, purchase orders, or creating new products, invoke the appropriate tools. " +
+                      "You can create new products in the catalog using create_product when requested. " +
                       "If a request requires multiple steps (for example: finding low stock items, then finding suppliers, and then creating a purchase order), " +
                       "you can invoke tools sequentially: inspect the intermediate tool output from earlier turns, and invoke the next required tool. " +
                       "You also have access to the recent conversation history in this thread. Use prior context (e.g. products, suppliers, or PO numbers discussed earlier) to resolve references like 'it', 'them', or 'that supplier'. " +

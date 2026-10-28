@@ -51,6 +51,36 @@ public class ERPTools : IERPTools
         }
     }
 
+    public async Task<ProductItemDto?> CreateProductAsync(string sku, string name, decimal unitPrice, int minimumStock)
+    {
+        try
+        {
+            _logger.LogInformation("[Tool Call] Creating product '{Name}' (SKU: {SKU}) in InventoryService...", name, sku);
+            var payload = new
+            {
+                sku,
+                name,
+                unitPrice,
+                minimumStock
+            };
+
+            var response = await _inventoryClient.PostAsJsonAsync("/api/products", payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to create product. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<ProductItemDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while creating product.");
+            return null;
+        }
+    }
+
     public async Task<List<InventoryItemDto>> GetProductInventoryAsync(int productId)
     {
         try

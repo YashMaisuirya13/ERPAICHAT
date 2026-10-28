@@ -22,6 +22,7 @@ public static class ERPToolResponseFormatter
                 "get_stock_transactions" => FormatStockTransactions(root),
                 "create_purchase_order" => FormatCreatedPurchaseOrder(root),
                 "approve_purchase_order" => FormatApprovedPurchaseOrder(root),
+                "create_product" => FormatCreatedProduct(root),
                 _ => FormatGenericToolResult(toolName, root)
             };
         }
@@ -369,6 +370,32 @@ public static class ERPToolResponseFormatter
         sb.AppendLine($"- **Approved At:** {approvedAt}");
         sb.AppendLine();
         sb.AppendLine("The purchase order has been marked Approved and the POApprovedEvent has been broadcast to inventory.");
+        return sb.ToString();
+    }
+
+    private static string FormatCreatedProduct(JsonElement root)
+    {
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            return $"### ❌ Product Creation Failed\n\n{errProp.GetString()}";
+        }
+
+        var name = root.TryGetProperty("name", out var np) ? np.GetString() : "Unknown Product";
+        var sku = root.TryGetProperty("sku", out var sp) ? sp.GetString() : "N/A";
+        var price = root.TryGetProperty("unitPrice", out var pp) ? pp.GetDecimal().ToString("C") : "$0.00";
+        var minStock = root.TryGetProperty("minimumStock", out var mp) ? mp.GetInt32() : 0;
+        var pId = root.TryGetProperty("productId", out var idp) ? idp.GetInt32().ToString() : "N/A";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### 📦 Product Created Successfully: `{name}`");
+        sb.AppendLine();
+        sb.AppendLine($"- **Product ID:** #{pId}");
+        sb.AppendLine($"- **Product Name:** {name}");
+        sb.AppendLine($"- **SKU Code:** `{sku}`");
+        sb.AppendLine($"- **Unit Price:** {price}");
+        sb.AppendLine($"- **Safety Reorder Threshold:** {minStock} units");
+        sb.AppendLine();
+        sb.AppendLine("The product is now registered in the catalog and available for inventory stock-in and purchase orders.");
         return sb.ToString();
     }
 }

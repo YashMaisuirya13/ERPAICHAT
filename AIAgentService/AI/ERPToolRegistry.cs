@@ -189,6 +189,27 @@ public class ERPToolRegistry : IERPToolRegistry
                         required = new[] { "poNumber" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "create_product",
+                    description = "Create a new product catalog item in the inventory system with SKU, name, unit price, and minimum safety stock threshold.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            name = new { type = "string", description = "Full descriptive name of the product (e.g. 'Ergonomic Mechanical Keyboard')." },
+                            sku = new { type = "string", description = "Optional SKU code. If omitted, a clean SKU will be generated automatically based on the product name." },
+                            unitPrice = new { type = "number", description = "Unit selling/cost price of the product (e.g. 89.99)." },
+                            minimumStock = new { type = "integer", description = "Minimum safety stock threshold for low-stock reorder warnings (default is 10)." }
+                        },
+                        required = new[] { "name", "unitPrice" }
+                    }
+                }
             }
         };
     }
@@ -509,6 +530,70 @@ public class ERPToolRegistry : IERPToolRegistry
                 };
 
                 return (JsonSerializer.Serialize(approveResult, s_jsonOptions), approveResult);
+            }
+
+            case "create_product":
+            {
+                string name = "";
+                string sku = "";
+                decimal unitPrice = 0;
+                int minimumStock = 10;
+
+                if (root.HasValue)
+                {
+                    if (root.Value.TryGetProperty("name", out var nProp))
+                        name = nProp.GetString()?.Trim() ?? "";
+
+                    if (root.Value.TryGetProperty("sku", out var sProp))
+                        sku = sProp.GetString()?.Trim() ?? "";
+
+                    if (root.Value.TryGetProperty("unitPrice", out var pProp))
+                        pProp.TryGetDecimal(out unitPrice);
+
+                    if (root.Value.TryGetProperty("minimumStock", out var mProp))
+                        mProp.TryGetInt32(out minimumStock);
+                }
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return (JsonSerializer.Serialize(new { error = "Product name is required." }, s_jsonOptions), new { error = "Product name required" });
+                }
+
+                if (unitPrice <= 0)
+                {
+                    return (JsonSerializer.Serialize(new { error = "Valid unit price greater than 0 is required." }, s_jsonOptions), new { error = "Invalid unit price" });
+                }
+
+                if (string.IsNullOrWhiteSpace(sku))
+                {
+                    var prefix = new string(name.Where(char.IsLetterOrDigit).Take(4).ToArray()).ToUpperInvariant();
+                    if (string.IsNullOrWhiteSpace(prefix)) prefix = "PROD";
+                    sku = $"{prefix}-{Random.Shared.Next(100, 999)}";
+                }
+
+                if (minimumStock <= 0)
+                {
+                    minimumStock = 5;
+                }
+
+                var createdProduct = await _erpTools.CreateProductAsync(sku, name, unitPrice, minimumStock);
+                if (createdProduct == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Failed to create product '{name}'. A product with SKU '{sku}' might already exist." }, s_jsonOptions), new { error = "Product creation failed" });
+                }
+
+                var productResult = new
+                {
+                    productId = createdProduct.Id,
+                    productGuid = createdProduct.ProductGuid,
+                    name = createdProduct.Name,
+                    sku = createdProduct.SKU,
+                    unitPrice = createdProduct.UnitPrice,
+                    minimumStock = createdProduct.MinimumStock,
+                    message = $"Product '{createdProduct.Name}' (SKU: {createdProduct.SKU}) was created successfully!"
+                };
+
+                return (JsonSerializer.Serialize(productResult, s_jsonOptions), productResult);
             }
 
             default:
