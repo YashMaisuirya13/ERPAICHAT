@@ -57,8 +57,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerWithJwt("AI Agent Service API");
 
 var app = builder.Build();
 

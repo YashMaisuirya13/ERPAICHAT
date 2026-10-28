@@ -24,15 +24,7 @@ builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 // Register Services
 builder.Services.AddScoped<ISupplierService, SupplierService.Services.SupplierService>();
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Supplier Service API",
-        Version = "v1"
-    });
-});
+builder.Services.AddSwaggerWithJwt("Supplier Service API");
 
 var app = builder.Build();
 

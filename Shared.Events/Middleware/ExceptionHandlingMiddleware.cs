@@ -45,7 +45,13 @@ public class ExceptionHandlingMiddleware
             ForbiddenException forbidden => (HttpStatusCode.Forbidden, forbidden.Message, new List<string>()),
             KeyNotFoundException keyNotFound => (HttpStatusCode.NotFound, keyNotFound.Message, new List<string>()),
             ArgumentException argEx => (HttpStatusCode.BadRequest, argEx.Message, new List<string>()),
-            _ => (HttpStatusCode.InternalServerError, "An internal server error occurred.", new List<string> { exception.Message })
+            _ => (
+                HttpStatusCode.InternalServerError,
+                "An internal server error occurred.",
+                exception.InnerException != null
+                    ? new List<string> { exception.Message, exception.InnerException.Message }
+                    : new List<string> { exception.Message }
+            )
         };
 
         response.StatusCode = (int)statusCode;

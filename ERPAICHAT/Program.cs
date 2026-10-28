@@ -30,15 +30,7 @@ builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IInventoryService, InventoryService.Services.InventoryService>();
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Inventory Service API",
-        Version = "v1"
-    });
-});
+builder.Services.AddSwaggerWithJwt("Inventory Service API");
 
 var app = builder.Build();
 

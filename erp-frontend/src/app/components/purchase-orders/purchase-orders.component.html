@@ -185,7 +185,7 @@
               <div class="po-code-cell">
                 <span class="po-icon">📄</span>
                 <div>
-                  <code class="po-code-badge">{{ po.purchaseOrderGuid | slice:0:13 }}...</code>
+                  <code class="po-code-badge">{{ po.poNumber || (po.purchaseOrderGuid | slice:0:13) + '...' }}</code>
                   <span class="po-full-id">{{ po.purchaseOrderGuid }}</span>
                 </div>
               </div>

@@ -26,7 +26,6 @@ public class InventoryRepository : IInventoryRepository
     {
         return await _context.InventoryItems
             .Include(x => x.Product)
-            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id);
     }
 
@@ -34,7 +33,6 @@ public class InventoryRepository : IInventoryRepository
     {
         return await _context.InventoryItems
             .Include(x => x.Product)
-            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.InventoryGuid == guid);
     }
 
@@ -72,7 +70,10 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task UpdateAsync(InventoryItem inventoryItem)
     {
-        _context.InventoryItems.Update(inventoryItem);
+        if (_context.Entry(inventoryItem).State == EntityState.Detached)
+        {
+            _context.InventoryItems.Update(inventoryItem);
+        }
         await _context.SaveChangesAsync();
     }
 

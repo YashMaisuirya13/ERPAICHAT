@@ -1,8 +1,12 @@
-﻿namespace InventoryService.DTOs.Inventory;
+namespace InventoryService.DTOs.Inventory;
 
 public class InventoryResponse
 {
+    public int Id { get; set; }
+
     public Guid InventoryGuid { get; set; }
+
+    public int ProductId { get; set; }
 
     public Guid ProductGuid { get; set; }
 

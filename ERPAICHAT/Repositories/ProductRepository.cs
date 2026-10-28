@@ -24,14 +24,12 @@ public class ProductRepository : IProductRepository
     public async Task<Product?> GetByIdAsync(int id)
     {
         return await _context.Products
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
     public async Task<Product?> GetByGuidAsync(Guid guid)
     {
         return await _context.Products
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.ProductGuid == guid);
     }
 

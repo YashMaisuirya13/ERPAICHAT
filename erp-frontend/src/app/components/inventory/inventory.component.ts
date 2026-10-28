@@ -10,6 +10,7 @@ export interface InventoryItem {
   productGuid?: string;
   productName?: string;
   sku?: string;
+  warehouseCode?: string;
   quantityAvailable: number;
   reorderLevel: number;
   lastUpdated?: string;
@@ -38,7 +39,8 @@ export class InventoryComponent implements OnInit {
   stockForm = {
     productId: 1,
     quantity: 10,
-    reference: 'RESTOCK-AUDIT'
+    reference: 'RESTOCK-AUDIT',
+    warehouseCode: 'WH-CENTRAL'
   };
 
   notification: { message: string; type: 'success' | 'error' } | null = null;
@@ -47,7 +49,7 @@ export class InventoryComponent implements OnInit {
     private erpService: ErpService,
     private cdr: ChangeDetectorRef,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.loadAllData();
@@ -74,18 +76,22 @@ export class InventoryComponent implements OnInit {
 
         this.inventory = rawItems.map((item: any) => {
           const prod = this.products.find(p =>
-            (p.productId && p.productId === item.productId) ||
-            (p.id && p.id === item.productId)
+            (item.productId && (p.productId === item.productId || p.id === item.productId)) ||
+            (item.productGuid && p.productGuid === item.productGuid) ||
+            (item.sku && (p.sku === item.sku || p.SKU === item.sku))
           );
 
+          const productId = item.productId || item.ProductId || prod?.id || prod?.productId;
+
           return {
-            id: item.id || item.productId,
-            productId: item.productId,
+            id: item.id || item.Id || item.inventoryGuid || productId,
+            productId: productId,
             productGuid: item.productGuid || prod?.productGuid || '',
-            productName: prod?.name || prod?.Name || `Product #${item.productId}`,
-            sku: prod?.sku || prod?.SKU || 'N/A',
-            quantityAvailable: Number(item.quantityAvailable !== undefined ? item.quantityAvailable : item.quantity || 0),
-            reorderLevel: Number(item.reorderLevel !== undefined ? item.reorderLevel : item.minimumStock || 10)
+            productName: item.productName || item.ProductName || prod?.name || prod?.Name || (productId ? `Product #${productId}` : 'Unnamed Product'),
+            sku: item.sku || item.SKU || prod?.sku || prod?.SKU || 'N/A',
+            warehouseCode: item.warehouseCode || item.WarehouseCode || 'WH-CENTRAL',
+            quantityAvailable: Number(item.quantityAvailable !== undefined ? item.quantityAvailable : (item.quantity !== undefined ? item.quantity : 0)),
+            reorderLevel: Number(item.reorderLevel !== undefined ? item.reorderLevel : (item.minimumStock !== undefined ? item.minimumStock : 10))
           };
         });
 
@@ -116,7 +122,7 @@ export class InventoryComponent implements OnInit {
       list = list.filter(item =>
         item.productName?.toLowerCase().includes(q) ||
         item.sku?.toLowerCase().includes(q) ||
-        item.productId.toString().includes(q)
+        (item.productId !== undefined && item.productId !== null && item.productId.toString().includes(q))
       );
     }
 
@@ -156,11 +162,18 @@ export class InventoryComponent implements OnInit {
   openStockModal(defaultProductId?: number) {
     if (defaultProductId) {
       this.stockForm.productId = defaultProductId;
+      const matched = this.inventory.find(i => i.productId === defaultProductId);
+      if (matched?.warehouseCode) {
+        this.stockForm.warehouseCode = matched.warehouseCode;
+      }
     } else if (this.products.length > 0) {
       this.stockForm.productId = this.products[0].productId || this.products[0].id || 1;
     }
     this.stockForm.quantity = 25;
     this.stockForm.reference = 'MANUAL-AUDIT';
+    if (!this.stockForm.warehouseCode) {
+      this.stockForm.warehouseCode = 'WH-CENTRAL';
+    }
     this.isModalOpen = true;
   }
 
@@ -174,16 +187,23 @@ export class InventoryComponent implements OnInit {
       return;
     }
     this.isSaving = true;
-    this.erpService.stockIn(this.stockForm).subscribe({
+    const payload = {
+      productId: Number(this.stockForm.productId),
+      quantity: Number(this.stockForm.quantity),
+      warehouseCode: this.stockForm.warehouseCode || 'WH-CENTRAL',
+      referenceNumber: this.stockForm.reference || 'MANUAL-AUDIT'
+    };
+    this.erpService.stockIn(payload).subscribe({
       next: () => {
         this.isSaving = false;
         this.closeStockModal();
-        this.showToast(`Stock In: +${this.stockForm.quantity} units recorded!`, 'success');
+        this.showToast(`Stock In: +${this.stockForm.quantity} units recorded for ${payload.warehouseCode}!`, 'success');
         this.loadInventory();
       },
       error: (err) => {
         this.isSaving = false;
-        this.showToast(err?.error?.message || 'Stock In failed.', 'error');
+        const errMsg = err?.error?.message || err?.error?.title || (err?.error?.errors ? Object.values(err.error.errors).flat().join(', ') : 'Stock In failed.');
+        this.showToast(errMsg, 'error');
       }
     });
   }
@@ -194,16 +214,23 @@ export class InventoryComponent implements OnInit {
       return;
     }
     this.isSaving = true;
-    this.erpService.stockOut(this.stockForm).subscribe({
+    const payload = {
+      productId: Number(this.stockForm.productId),
+      quantity: Number(this.stockForm.quantity),
+      warehouseCode: this.stockForm.warehouseCode || 'WH-CENTRAL',
+      referenceNumber: this.stockForm.reference || 'MANUAL-AUDIT'
+    };
+    this.erpService.stockOut(payload).subscribe({
       next: () => {
         this.isSaving = false;
         this.closeStockModal();
-        this.showToast(`Stock Out: -${this.stockForm.quantity} units recorded!`, 'success');
+        this.showToast(`Stock Out: -${this.stockForm.quantity} units recorded from ${payload.warehouseCode}!`, 'success');
         this.loadInventory();
       },
       error: (err) => {
         this.isSaving = false;
-        this.showToast(err?.error?.message || 'Stock Out failed. Insufficient stock.', 'error');
+        const errMsg = err?.error?.message || err?.error?.title || (err?.error?.errors ? Object.values(err.error.errors).flat().join(', ') : 'Stock Out failed. Insufficient stock.');
+        this.showToast(errMsg, 'error');
       }
     });
   }

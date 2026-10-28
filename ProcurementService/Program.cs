@@ -53,15 +53,7 @@ builder.Services.AddHttpClient<IInventoryClient, InventoryClient>(client =>
 // Register Services
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Procurement Service API",
-        Version = "v1"
-    });
-});
+builder.Services.AddSwaggerWithJwt("Procurement Service API");
 
 var app = builder.Build();
 

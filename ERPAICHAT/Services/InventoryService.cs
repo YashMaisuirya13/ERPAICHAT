@@ -66,8 +66,7 @@ public class InventoryService : IInventoryService
             {
                 ProductId = request.ProductId,
                 Quantity = request.Quantity,
-                WarehouseCode = request.WarehouseCode,
-                Product = product
+                WarehouseCode = request.WarehouseCode
             };
 
             inventoryItem = await _inventoryRepository.CreateAsync(inventoryItem);
@@ -184,7 +183,9 @@ public class InventoryService : IInventoryService
     {
         return new InventoryResponse
         {
+            Id = inventory.Id,
             InventoryGuid = inventory.InventoryGuid,
+            ProductId = inventory.ProductId,
             ProductGuid = inventory.Product?.ProductGuid ?? Guid.Empty,
             SKU = inventory.Product?.SKU ?? string.Empty,
             ProductName = inventory.Product?.Name ?? string.Empty,

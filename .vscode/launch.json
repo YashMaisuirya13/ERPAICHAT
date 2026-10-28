@@ -1,0 +1,86 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug InventoryService (Port 5045)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/ERPAICHAT/bin/Debug/net9.0/InventoryService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/ERPAICHAT",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5045"
+      }
+    },
+    {
+      "name": "Debug ApiGateway (Port 5000)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/ApiGateway/bin/Debug/net9.0/ApiGateway.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/ApiGateway",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5000"
+      }
+    },
+    {
+      "name": "Debug ProcurementService (Port 5047)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/ProcurementService/bin/Debug/net9.0/ProcurementService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/ProcurementService",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5047"
+      }
+    },
+    {
+      "name": "Debug SupplierService (Port 5046)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/SupplierService/bin/Debug/net9.0/SupplierService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/SupplierService",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5046"
+      }
+    },
+    {
+      "name": "Debug AIAgentService (Port 5048)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/AIAgentService/bin/Debug/net9.0/AIAgentService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/AIAgentService",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5048"
+      }
+    },
+    {
+      "name": ".NET: Attach to Process (Easiest when running run-all.ps1)",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickProcess}"
+    }
+  ]
+}

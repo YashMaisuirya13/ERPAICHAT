@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add Controllers and JWT Authentication
 builder.Services.AddControllers();
 builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddSwaggerWithJwt("ERP API Gateway");
 builder.Services.AddHealthChecks();
 
 // Add CORS for Angular frontend
@@ -30,6 +31,12 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");

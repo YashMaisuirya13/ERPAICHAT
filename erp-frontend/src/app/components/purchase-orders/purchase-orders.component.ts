@@ -8,6 +8,7 @@ import { AuthService } from '../../services/auth.service';
 export interface PurchaseOrderItem {
   id?: number;
   purchaseOrderGuid?: string;
+  poNumber?: string;
   supplierId: any;
   supplierName?: string;
   status: string;
@@ -104,20 +105,23 @@ export class PurchaseOrdersComponent implements OnInit {
         const rawItems = this.extractArray(res);
 
         this.purchaseOrders = rawItems.map((po: any) => {
+          const supplierGuid = po.supplierGuid || po.SupplierGuid || po.supplierId;
           const supplier = this.suppliers.find(s =>
-            (s.supplierGuid && s.supplierGuid === po.supplierId) ||
-            (s.id && s.id === po.supplierId)
+            (s.supplierGuid && s.supplierGuid === supplierGuid) ||
+            (s.SupplierGuid && s.SupplierGuid === supplierGuid) ||
+            (s.id && s.id === supplierGuid)
           );
 
           return {
             id: po.id,
-            purchaseOrderGuid: po.purchaseOrderGuid || po.guid || `PO-${po.id}`,
-            supplierId: po.supplierId,
-            supplierName: po.supplierName || supplier?.name || supplier?.Name || `Supplier #${po.supplierId}`,
-            status: po.status || 'Draft',
-            totalAmount: Number(po.totalAmount !== undefined ? po.totalAmount : po.TotalAmount || 0),
-            items: po.items || [],
-            createdDate: po.createdDate || po.createdAt || new Date().toISOString()
+            purchaseOrderGuid: po.purchaseOrderGuid || po.PurchaseOrderGuid || po.guid || `PO-${po.id}`,
+            poNumber: po.poNumber || po.PONumber || '',
+            supplierId: supplierGuid,
+            supplierName: supplier?.name || supplier?.Name || (supplierGuid ? `Supplier ${String(supplierGuid).substring(0, 8)}...` : 'Unknown Supplier'),
+            status: po.status || po.Status || 'Draft',
+            totalAmount: Number(po.totalAmount ?? po.TotalAmount ?? 0),
+            items: po.items || po.Items || [],
+            createdDate: po.orderDate || po.OrderDate || po.createdDate || po.createdAt || new Date().toISOString()
           };
         });
 
@@ -142,6 +146,7 @@ export class PurchaseOrdersComponent implements OnInit {
     if (this.searchTerm.trim()) {
       const q = this.searchTerm.toLowerCase().trim();
       list = list.filter(po =>
+        (po.poNumber && po.poNumber.toLowerCase().includes(q)) ||
         (po.purchaseOrderGuid && po.purchaseOrderGuid.toLowerCase().includes(q)) ||
         (po.supplierName && po.supplierName.toLowerCase().includes(q)) ||
         (po.status && po.status.toLowerCase().includes(q))
@@ -206,12 +211,24 @@ export class PurchaseOrdersComponent implements OnInit {
       return;
     }
 
+    // Resolve the product's GUID from the selected productId (which may be an int id)
+    const selectedProduct = this.products.find(p =>
+      (p.productId || p.id) === Number(this.newItem.productId) ||
+      p.productGuid === String(this.newItem.productId)
+    );
+    const productGuid = selectedProduct?.productGuid || selectedProduct?.ProductGuid || '';
+
+    if (!productGuid) {
+      this.showToast('Selected product has no GUID. Please select a valid product.', 'error');
+      return;
+    }
+
     this.isSaving = true;
     const payload = {
-      supplierId: this.newPo.supplierId,
+      supplierGuid: this.newPo.supplierId,
       items: [
         {
-          productId: Number(this.newItem.productId),
+          productGuid: productGuid,
           quantity: Number(this.newItem.quantity),
           unitPrice: Number(this.newItem.unitPrice)
         }

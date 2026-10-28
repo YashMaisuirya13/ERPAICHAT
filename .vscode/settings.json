@@ -1,0 +1,9 @@
+{
+  "dotnet.defaultSolution": "ERPAICHAT.sln",
+  "omnisharp.defaultLaunchSolution": "ERPAICHAT.sln",
+  "omnisharp.enableMsBuildLoadProjectsOnDemand": false,
+  "omnisharp.useModernNet": true,
+  "csharp-dev-tools.solutionViewer.selectedWorkspaceSolutions": [
+    "ERPAICHAT.sln"
+  ]
+}
