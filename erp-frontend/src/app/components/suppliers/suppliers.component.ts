@@ -71,8 +71,8 @@ export class SuppliersComponent implements OnInit {
         }
 
         this.suppliers = items.map(s => ({
-          id: s.id,
-          supplierGuid: s.supplierGuid || s.guid || '',
+          id: s.id ?? s.Id,
+          supplierGuid: s.supplierGuid || s.SupplierGuid || s.guid || '',
           name: s.name || s.Name || 'Unnamed Vendor',
           supplierCode: s.supplierCode || s.SupplierCode || 'SUP-000',
           email: s.email || s.Email || 'contact@supplier.com',

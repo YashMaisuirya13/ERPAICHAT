@@ -210,6 +210,70 @@ public class ERPToolRegistry : IERPToolRegistry
                         required = new[] { "name", "unitPrice" }
                     }
                 }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "create_supplier",
+                    description = "Register a new verified supplier/vendor partner in the ERP system with company name, code, contact email, phone, and billing/warehouse address.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            name = new { type = "string", description = "Company/vendor name (e.g. 'Logitech Global Distribution')." },
+                            supplierCode = new { type = "string", description = "Optional unique supplier code (e.g. 'SUP-LOGI-01'). If omitted, will be generated automatically." },
+                            email = new { type = "string", description = "Business contact email address." },
+                            phone = new { type = "string", description = "Business contact phone number." },
+                            address = new { type = "string", description = "Headquarters, warehouse, or billing address." }
+                        },
+                        required = new[] { "name" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "stock_in",
+                    description = "Receive or add inventory stock for a product into a warehouse location. Increments physical stock count.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            productName = new { type = "string", description = "Product name, SKU, or numeric product ID to receive stock for." },
+                            quantity = new { type = "integer", description = "Quantity of units to receive/add (must be greater than 0)." },
+                            warehouseCode = new { type = "string", description = "Warehouse code (e.g. 'WH-CENTRAL', 'WH-EAST', 'WH-WEST'). Defaults to 'WH-CENTRAL'." },
+                            referenceNumber = new { type = "string", description = "Optional reference number or PO code (e.g. 'PO-1001', 'RCV-9876')." }
+                        },
+                        required = new[] { "productName", "quantity" }
+                    }
+                }
+            },
+            new
+            {
+                type = "function",
+                function = new
+                {
+                    name = "stock_out",
+                    description = "Dispatch, ship, or deduct inventory stock for a product from a warehouse location. Decrements physical stock count.",
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = new
+                        {
+                            productName = new { type = "string", description = "Product name, SKU, or numeric product ID to deduct stock from." },
+                            quantity = new { type = "integer", description = "Quantity of units to deduct/ship (must be greater than 0)." },
+                            warehouseCode = new { type = "string", description = "Warehouse code (e.g. 'WH-CENTRAL', 'WH-EAST', 'WH-WEST'). Defaults to 'WH-CENTRAL'." },
+                            referenceNumber = new { type = "string", description = "Optional reference number or shipment code (e.g. 'DISP-5432')." }
+                        },
+                        required = new[] { "productName", "quantity" }
+                    }
+                }
             }
         };
     }
@@ -594,6 +658,190 @@ public class ERPToolRegistry : IERPToolRegistry
                 };
 
                 return (JsonSerializer.Serialize(productResult, s_jsonOptions), productResult);
+            }
+
+            case "create_supplier":
+            {
+                string name = "";
+                string supplierCode = "";
+                string email = "";
+                string phone = "";
+                string address = "";
+
+                if (root.HasValue)
+                {
+                    if (root.Value.TryGetProperty("name", out var nProp))
+                        name = nProp.GetString()?.Trim() ?? "";
+
+                    if (root.Value.TryGetProperty("supplierCode", out var cProp))
+                        supplierCode = cProp.GetString()?.Trim() ?? "";
+
+                    if (root.Value.TryGetProperty("email", out var eProp))
+                        email = eProp.GetString()?.Trim() ?? "";
+
+                    if (root.Value.TryGetProperty("phone", out var pProp))
+                        phone = pProp.GetString()?.Trim() ?? "";
+
+                    if (root.Value.TryGetProperty("address", out var aProp))
+                        address = aProp.GetString()?.Trim() ?? "";
+                }
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return (JsonSerializer.Serialize(new { error = "Supplier name is required." }, s_jsonOptions), new { error = "Supplier name required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(supplierCode))
+                {
+                    var prefix = new string(name.Where(char.IsLetterOrDigit).Take(4).ToArray()).ToUpperInvariant();
+                    if (string.IsNullOrWhiteSpace(prefix)) prefix = "SUP";
+                    supplierCode = $"{prefix}-{Random.Shared.Next(100, 999)}";
+                }
+
+                var createdSupplier = await _erpTools.CreateSupplierAsync(supplierCode, name, email, phone, address);
+                if (createdSupplier == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Failed to create supplier '{name}'. A supplier with code '{supplierCode}' might already exist." }, s_jsonOptions), new { error = "Supplier creation failed" });
+                }
+
+                var supplierResult = new
+                {
+                    supplierId = createdSupplier.Id,
+                    supplierGuid = createdSupplier.SupplierGuid,
+                    supplierCode = createdSupplier.SupplierCode,
+                    name = createdSupplier.Name,
+                    email = createdSupplier.Email,
+                    phone = createdSupplier.Phone,
+                    address = createdSupplier.Address,
+                    isActive = createdSupplier.IsActive,
+                    message = $"Supplier '{createdSupplier.Name}' (Code: {createdSupplier.SupplierCode}) was registered successfully!"
+                };
+
+                return (JsonSerializer.Serialize(supplierResult, s_jsonOptions), supplierResult);
+            }
+
+            case "stock_in":
+            {
+                string prodIdentifier = "";
+                int quantity = 0;
+                string warehouseCode = "WH-CENTRAL";
+                string? referenceNumber = null;
+
+                if (root.HasValue)
+                {
+                    if (root.Value.TryGetProperty("productName", out var pProp))
+                        prodIdentifier = pProp.GetString()?.Trim() ?? "";
+                    else if (root.Value.TryGetProperty("productId", out var idProp))
+                        prodIdentifier = idProp.ToString();
+
+                    if (root.Value.TryGetProperty("quantity", out var qProp))
+                        quantity = qProp.GetInt32();
+
+                    if (root.Value.TryGetProperty("warehouseCode", out var wProp) && !string.IsNullOrWhiteSpace(wProp.GetString()))
+                        warehouseCode = wProp.GetString()!.Trim();
+
+                    if (root.Value.TryGetProperty("referenceNumber", out var rProp))
+                        referenceNumber = rProp.GetString()?.Trim();
+                }
+
+                if (quantity <= 0)
+                {
+                    return (JsonSerializer.Serialize(new { error = "Quantity must be greater than 0." }, s_jsonOptions), new { error = "Invalid quantity" });
+                }
+
+                var allProducts = await _erpTools.GetAllProductsAsync();
+                var matchedProduct = allProducts.FirstOrDefault(p =>
+                    p.Id.ToString() == prodIdentifier ||
+                    p.Name.Equals(prodIdentifier, StringComparison.OrdinalIgnoreCase) ||
+                    p.SKU.Equals(prodIdentifier, StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Contains(prodIdentifier, StringComparison.OrdinalIgnoreCase));
+
+                if (matchedProduct == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Product '{prodIdentifier}' was not found in the catalog." }, s_jsonOptions), new { error = "Product not found" });
+                }
+
+                var stockResult = await _erpTools.StockInAsync(matchedProduct.Id, quantity, warehouseCode, referenceNumber);
+                if (stockResult == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Failed to record stock-in for product '{matchedProduct.Name}'." }, s_jsonOptions), new { error = "Stock-in failed" });
+                }
+
+                var resultObj = new
+                {
+                    productId = matchedProduct.Id,
+                    productName = matchedProduct.Name,
+                    sku = matchedProduct.SKU,
+                    warehouseCode = warehouseCode,
+                    quantityAdded = quantity,
+                    currentQuantity = stockResult.Quantity,
+                    referenceNumber = referenceNumber ?? "",
+                    message = $"Successfully stocked in {quantity} units of '{matchedProduct.Name}' into warehouse {warehouseCode}."
+                };
+
+                return (JsonSerializer.Serialize(resultObj, s_jsonOptions), resultObj);
+            }
+
+            case "stock_out":
+            {
+                string prodIdentifier = "";
+                int quantity = 0;
+                string warehouseCode = "WH-CENTRAL";
+                string? referenceNumber = null;
+
+                if (root.HasValue)
+                {
+                    if (root.Value.TryGetProperty("productName", out var pProp))
+                        prodIdentifier = pProp.GetString()?.Trim() ?? "";
+                    else if (root.Value.TryGetProperty("productId", out var idProp))
+                        prodIdentifier = idProp.ToString();
+
+                    if (root.Value.TryGetProperty("quantity", out var qProp))
+                        quantity = qProp.GetInt32();
+
+                    if (root.Value.TryGetProperty("warehouseCode", out var wProp) && !string.IsNullOrWhiteSpace(wProp.GetString()))
+                        warehouseCode = wProp.GetString()!.Trim();
+
+                    if (root.Value.TryGetProperty("referenceNumber", out var rProp))
+                        referenceNumber = rProp.GetString()?.Trim();
+                }
+
+                if (quantity <= 0)
+                {
+                    return (JsonSerializer.Serialize(new { error = "Quantity must be greater than 0." }, s_jsonOptions), new { error = "Invalid quantity" });
+                }
+
+                var allProducts = await _erpTools.GetAllProductsAsync();
+                var matchedProduct = allProducts.FirstOrDefault(p =>
+                    p.Id.ToString() == prodIdentifier ||
+                    p.Name.Equals(prodIdentifier, StringComparison.OrdinalIgnoreCase) ||
+                    p.SKU.Equals(prodIdentifier, StringComparison.OrdinalIgnoreCase) ||
+                    p.Name.Contains(prodIdentifier, StringComparison.OrdinalIgnoreCase));
+
+                if (matchedProduct == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Product '{prodIdentifier}' was not found in the catalog." }, s_jsonOptions), new { error = "Product not found" });
+                }
+
+                var stockResult = await _erpTools.StockOutAsync(matchedProduct.Id, quantity, warehouseCode, referenceNumber);
+                if (stockResult == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Failed to record stock-out for product '{matchedProduct.Name}'. Check if sufficient stock exists in warehouse {warehouseCode}." }, s_jsonOptions), new { error = "Stock-out failed" });
+                }
+
+                var resultObj = new
+                {
+                    productId = matchedProduct.Id,
+                    productName = matchedProduct.Name,
+                    sku = matchedProduct.SKU,
+                    warehouseCode = warehouseCode,
+                    quantityDeducted = quantity,
+                    currentQuantity = stockResult.Quantity,
+                    referenceNumber = referenceNumber ?? "",
+                    message = $"Successfully dispatched/stocked out {quantity} units of '{matchedProduct.Name}' from warehouse {warehouseCode}."
+                };
+
+                return (JsonSerializer.Serialize(resultObj, s_jsonOptions), resultObj);
             }
 
             default:

@@ -96,6 +96,66 @@ public class ERPTools : IERPTools
         }
     }
 
+    public async Task<InventoryItemDto?> StockInAsync(int productId, int quantity, string warehouseCode, string? referenceNumber = null)
+    {
+        try
+        {
+            _logger.LogInformation("[Tool Call] Recording Stock-In: {Quantity} units of Product {ProductId} into {Warehouse}...", quantity, productId, warehouseCode);
+            var payload = new
+            {
+                productId,
+                quantity,
+                warehouseCode,
+                referenceNumber = referenceNumber ?? "AI-STOCK-IN"
+            };
+
+            var response = await _inventoryClient.PostAsJsonAsync("/api/inventory/stock-in", payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to record Stock-In. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<InventoryItemDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred during Stock-In.");
+            return null;
+        }
+    }
+
+    public async Task<InventoryItemDto?> StockOutAsync(int productId, int quantity, string warehouseCode, string? referenceNumber = null)
+    {
+        try
+        {
+            _logger.LogInformation("[Tool Call] Recording Stock-Out: {Quantity} units of Product {ProductId} from {Warehouse}...", quantity, productId, warehouseCode);
+            var payload = new
+            {
+                productId,
+                quantity,
+                warehouseCode,
+                referenceNumber = referenceNumber ?? "AI-STOCK-OUT"
+            };
+
+            var response = await _inventoryClient.PostAsJsonAsync("/api/inventory/stock-out", payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to record Stock-Out. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<InventoryItemDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred during Stock-Out.");
+            return null;
+        }
+    }
+
     public async Task<List<SupplierItemDto>> GetSuppliersAsync()
     {
         try
@@ -121,6 +181,37 @@ public class ERPTools : IERPTools
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch supplier details.");
+            return null;
+        }
+    }
+
+    public async Task<SupplierItemDto?> CreateSupplierAsync(string supplierCode, string name, string email, string phone, string address)
+    {
+        try
+        {
+            _logger.LogInformation("[Tool Call] Creating supplier '{Name}' (Code: {Code}) in SupplierService...", name, supplierCode);
+            var payload = new
+            {
+                supplierCode,
+                name,
+                email,
+                phone,
+                address
+            };
+
+            var response = await _supplierClient.PostAsJsonAsync("/api/suppliers", payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to create supplier. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<SupplierItemDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while creating supplier.");
             return null;
         }
     }

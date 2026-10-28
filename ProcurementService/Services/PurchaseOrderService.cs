@@ -280,18 +280,31 @@ public class PurchaseOrderService : IPurchaseOrderService
             return null;
         }
 
-        if (order.Status != "Sent")
+        if (order.Status != "Sent" && order.Status != "Approved")
         {
-            throw new InvalidOperationException($"Cannot mark Purchase Order as received in '{order.Status}' status. Order must be 'Sent' first.");
+            throw new InvalidOperationException($"Cannot mark Purchase Order as received in '{order.Status}' status. Order must be 'Approved' or 'Sent' first.");
         }
 
         order.Status = "Received";
         order.ReceivedAt = DateTime.UtcNow;
         await _repository.UpdateAsync(order);
 
-        // Publish StockReceivedEvent for each line item to notify InventoryService & AI
+        // Directly restock inventory in InventoryService and publish StockReceivedEvent
         foreach (var item in order.Items)
         {
+            try
+            {
+                var product = await _inventoryClient.GetProductByGuidAsync(item.ProductGuid);
+                if (product != null && product.Id > 0)
+                {
+                    await _inventoryClient.StockInAsync(product.Id, item.Quantity, "WH-CENTRAL", order.PONumber);
+                }
+            }
+            catch
+            {
+                // Non-blocking fallback; event bus still notifies
+            }
+
             await _eventBus.PublishAsync(new StockReceivedEvent
             {
                 ProductGuid = item.ProductGuid,

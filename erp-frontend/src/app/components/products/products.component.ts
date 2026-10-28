@@ -72,9 +72,9 @@ export class ProductsComponent implements OnInit {
         }
 
         this.products = items.map(p => ({
-          id: p.productId || p.id || 0,
-          productId: p.productId || p.id || 0,
-          productGuid: p.productGuid || p.guid || '',
+          id: p.productId || p.id || p.Id || 0,
+          productId: p.productId || p.id || p.Id || 0,
+          productGuid: p.productGuid || p.ProductGuid || p.guid || '',
           name: p.name || p.Name || 'Unnamed Product',
           sku: p.sku || p.SKU || 'N/A',
           unitPrice: Number(p.unitPrice !== undefined ? p.unitPrice : p.UnitPrice || 0),

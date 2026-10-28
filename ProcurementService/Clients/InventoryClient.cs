@@ -50,4 +50,35 @@ public class InventoryClient : IInventoryClient
             throw new ServiceUnavailableException("InventoryService", "Unable to reach InventoryService. Please verify network connectivity and service status.", ex);
         }
     }
+
+    public async Task<bool> StockInAsync(int productId, int quantity, string warehouseCode, string? referenceNumber = null)
+    {
+        try
+        {
+            _logger.LogInformation("Calling InventoryService StockIn for ProductId: {ProductId}, Qty: {Qty}, WH: {WH}", productId, quantity, warehouseCode);
+
+            var payload = new
+            {
+                productId = productId,
+                quantity = quantity,
+                warehouseCode = warehouseCode,
+                referenceNumber = referenceNumber
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("/api/inventory/stock-in", payload);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("InventoryService StockIn returned non-success code {StatusCode}: {Body}", response.StatusCode, body);
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to call InventoryService StockIn for ProductId: {ProductId}", productId);
+            return false;
+        }
+    }
 }

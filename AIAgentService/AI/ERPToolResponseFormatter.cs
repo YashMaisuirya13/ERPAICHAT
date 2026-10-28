@@ -23,6 +23,9 @@ public static class ERPToolResponseFormatter
                 "create_purchase_order" => FormatCreatedPurchaseOrder(root),
                 "approve_purchase_order" => FormatApprovedPurchaseOrder(root),
                 "create_product" => FormatCreatedProduct(root),
+                "create_supplier" => FormatCreatedSupplier(root),
+                "stock_in" => FormatStockIn(root),
+                "stock_out" => FormatStockOut(root),
                 _ => FormatGenericToolResult(toolName, root)
             };
         }
@@ -396,6 +399,91 @@ public static class ERPToolResponseFormatter
         sb.AppendLine($"- **Safety Reorder Threshold:** {minStock} units");
         sb.AppendLine();
         sb.AppendLine("The product is now registered in the catalog and available for inventory stock-in and purchase orders.");
+        return sb.ToString();
+    }
+
+    private static string FormatCreatedSupplier(JsonElement root)
+    {
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            return $"### ❌ Supplier Registration Failed\n\n{errProp.GetString()}";
+        }
+
+        var name = root.TryGetProperty("name", out var np) ? np.GetString() : "Unknown Supplier";
+        var code = root.TryGetProperty("supplierCode", out var cp) ? cp.GetString() : "N/A";
+        var email = root.TryGetProperty("email", out var ep) ? ep.GetString() : "Not provided";
+        var phone = root.TryGetProperty("phone", out var pp) ? pp.GetString() : "Not provided";
+        var address = root.TryGetProperty("address", out var ap) ? ap.GetString() : "Not provided";
+        var sId = root.TryGetProperty("supplierId", out var idp) ? idp.GetInt32().ToString() : "N/A";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### 🤝 Supplier Registered Successfully: `{name}`");
+        sb.AppendLine();
+        sb.AppendLine($"- **Supplier ID:** #{sId}");
+        sb.AppendLine($"- **Company Name:** {name}");
+        sb.AppendLine($"- **Supplier Code:** `{code}`");
+        sb.AppendLine($"- **Contact Email:** {email}");
+        sb.AppendLine($"- **Contact Phone:** {phone}");
+        sb.AppendLine($"- **Business Address:** {address}");
+        sb.AppendLine($"- **Status:** 🟢 Active");
+        sb.AppendLine();
+        sb.AppendLine("The vendor partner has been registered and is now eligible to receive Purchase Orders.");
+        return sb.ToString();
+    }
+
+    private static string FormatStockIn(JsonElement root)
+    {
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            return $"### ❌ Stock-In Failed\n\n{errProp.GetString()}";
+        }
+
+        var pName = root.TryGetProperty("productName", out var p) ? p.GetString() : "Item";
+        var sku = root.TryGetProperty("sku", out var s) ? s.GetString() : "";
+        var wh = root.TryGetProperty("warehouseCode", out var w) ? w.GetString() : "WH-CENTRAL";
+        var added = root.TryGetProperty("quantityAdded", out var q) ? q.GetInt32() : 0;
+        var total = root.TryGetProperty("currentQuantity", out var cq) ? cq.GetInt32() : 0;
+        var refNum = root.TryGetProperty("referenceNumber", out var r) ? r.GetString() : "";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### 📥 Stock-In Received: `{pName}`");
+        sb.AppendLine();
+        sb.AppendLine($"- **Product:** {pName} (`{sku}`)");
+        sb.AppendLine($"- **Warehouse Location:** `{wh}`");
+        sb.AppendLine($"- **Quantity Received:** **+{added} units**");
+        sb.AppendLine($"- **Updated Total Stock in Warehouse:** **{total} units**");
+        if (!string.IsNullOrWhiteSpace(refNum))
+            sb.AppendLine($"- **Reference / PO Number:** `{refNum}`");
+        sb.AppendLine();
+        sb.AppendLine("Stock balance has been updated in the warehouse inventory.");
+        return sb.ToString();
+    }
+
+    private static string FormatStockOut(JsonElement root)
+    {
+        if (root.TryGetProperty("error", out var errProp))
+        {
+            return $"### ❌ Stock-Out Failed\n\n{errProp.GetString()}";
+        }
+
+        var pName = root.TryGetProperty("productName", out var p) ? p.GetString() : "Item";
+        var sku = root.TryGetProperty("sku", out var s) ? s.GetString() : "";
+        var wh = root.TryGetProperty("warehouseCode", out var w) ? w.GetString() : "WH-CENTRAL";
+        var deducted = root.TryGetProperty("quantityDeducted", out var q) ? q.GetInt32() : 0;
+        var total = root.TryGetProperty("currentQuantity", out var cq) ? cq.GetInt32() : 0;
+        var refNum = root.TryGetProperty("referenceNumber", out var r) ? r.GetString() : "";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"### 📤 Stock-Out Dispatched: `{pName}`");
+        sb.AppendLine();
+        sb.AppendLine($"- **Product:** {pName} (`{sku}`)");
+        sb.AppendLine($"- **Warehouse Location:** `{wh}`");
+        sb.AppendLine($"- **Quantity Deducted/Shipped:** **-{deducted} units**");
+        sb.AppendLine($"- **Updated Remaining Stock in Warehouse:** **{total} units**");
+        if (!string.IsNullOrWhiteSpace(refNum))
+            sb.AppendLine($"- **Reference / Shipment Number:** `{refNum}`");
+        sb.AppendLine();
+        sb.AppendLine("Inventory deduction has been recorded and logged.");
         return sb.ToString();
     }
 }

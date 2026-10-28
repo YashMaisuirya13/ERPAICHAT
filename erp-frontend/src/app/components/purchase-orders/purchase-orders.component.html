@@ -275,7 +275,7 @@
           <div class="form-group">
             <label>Select Supplier Partner <span class="required">*</span></label>
             <select [(ngModel)]="newPo.supplierId" name="supplierId" class="form-control" required>
-              <option *ngFor="let s of suppliers" [value]="s.supplierGuid || s.id">
+              <option *ngFor="let s of suppliers" [value]="s.supplierGuid || s.SupplierGuid || s.id">
                 {{ s.name || s.Name }} (Code: {{ s.supplierCode || s.SupplierCode }})
               </option>
             </select>

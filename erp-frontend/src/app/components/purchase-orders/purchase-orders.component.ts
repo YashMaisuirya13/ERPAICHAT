@@ -72,7 +72,7 @@ export class PurchaseOrdersComponent implements OnInit {
       next: (supRes: any) => {
         this.suppliers = this.extractArray(supRes);
         if (this.suppliers.length > 0 && !this.newPo.supplierId) {
-          this.newPo.supplierId = this.suppliers[0].supplierGuid || this.suppliers[0].id;
+          this.newPo.supplierId = this.suppliers[0].supplierGuid || this.suppliers[0].SupplierGuid || this.suppliers[0].id;
         }
 
         this.erpService.getProducts().subscribe({
@@ -105,19 +105,21 @@ export class PurchaseOrdersComponent implements OnInit {
         const rawItems = this.extractArray(res);
 
         this.purchaseOrders = rawItems.map((po: any) => {
-          const supplierGuid = po.supplierGuid || po.SupplierGuid || po.supplierId;
-          const supplier = this.suppliers.find(s =>
-            (s.supplierGuid && s.supplierGuid === supplierGuid) ||
-            (s.SupplierGuid && s.SupplierGuid === supplierGuid) ||
-            (s.id && s.id === supplierGuid)
-          );
+          const rawSupplierGuid = po.supplierGuid || po.SupplierGuid || po.supplierId || po.SupplierId;
+          const supplierGuidStr = rawSupplierGuid ? String(rawSupplierGuid).trim().toLowerCase() : '';
+
+          const supplier = this.suppliers.find(s => {
+            const sGuid = (s.supplierGuid || s.SupplierGuid) ? String(s.supplierGuid || s.SupplierGuid).trim().toLowerCase() : '';
+            const sId = (s.id !== undefined && s.id !== null) ? String(s.id).trim().toLowerCase() : '';
+            return (sGuid && sGuid === supplierGuidStr) || (sId && sId === supplierGuidStr);
+          });
 
           return {
             id: po.id,
             purchaseOrderGuid: po.purchaseOrderGuid || po.PurchaseOrderGuid || po.guid || `PO-${po.id}`,
             poNumber: po.poNumber || po.PONumber || '',
-            supplierId: supplierGuid,
-            supplierName: supplier?.name || supplier?.Name || (supplierGuid ? `Supplier ${String(supplierGuid).substring(0, 8)}...` : 'Unknown Supplier'),
+            supplierId: rawSupplierGuid,
+            supplierName: supplier?.name || supplier?.Name || po.supplierName || po.SupplierName || (rawSupplierGuid ? `Supplier (${String(rawSupplierGuid).substring(0, 8)}...)` : 'Unknown Supplier'),
             status: po.status || po.Status || 'Draft',
             totalAmount: Number(po.totalAmount ?? po.TotalAmount ?? 0),
             items: po.items || po.Items || [],
@@ -196,7 +198,7 @@ export class PurchaseOrdersComponent implements OnInit {
 
   openCreateModal() {
     if (this.suppliers.length > 0 && !this.newPo.supplierId) {
-      this.newPo.supplierId = this.suppliers[0].supplierGuid || this.suppliers[0].id;
+      this.newPo.supplierId = this.suppliers[0].supplierGuid || this.suppliers[0].SupplierGuid || this.suppliers[0].id;
     }
     this.isModalOpen = true;
   }
