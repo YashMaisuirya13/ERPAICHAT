@@ -255,6 +255,16 @@
     </div>
   </div>
 
+  <!-- Pagination Component -->
+  <app-pagination
+    *ngIf="!isLoading && totalCount > 0"
+    [totalCount]="totalCount"
+    [pageNumber]="currentPage"
+    [pageSize]="pageSize"
+    (pageChange)="onPageChange($event)"
+    (pageSizeChange)="onPageSizeChange($event)">
+  </app-pagination>
+
   <!-- CREATE PO MODAL -->
   <div *ngIf="isModalOpen" class="modal-backdrop" (click)="closeCreateModal()">
     <div class="modal-dialog" (click)="$event.stopPropagation()">

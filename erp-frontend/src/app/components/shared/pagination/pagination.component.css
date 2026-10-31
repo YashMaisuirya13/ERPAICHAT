@@ -1,0 +1,112 @@
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--surface-card, #ffffff);
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0 0 12px 12px;
+  color: var(--text-color-secondary, #64748b);
+  font-size: 0.875rem;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.pagination-info strong {
+  color: var(--text-color, #1e293b);
+  font-weight: 600;
+}
+
+.page-size-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-size-selector select {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--surface-ground, #f8fafc);
+  color: var(--text-color, #1e293b);
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.page-size-selector select:focus {
+  border-color: var(--primary-color, #3b82f6);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--surface-card, #ffffff);
+  color: var(--text-color, #1e293b);
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: var(--surface-hover, #f1f5f9);
+  border-color: var(--primary-light, #93c5fd);
+  color: var(--primary-color, #2563eb);
+}
+
+.page-btn.active {
+  background: var(--primary-color, #3b82f6);
+  border-color: var(--primary-color, #3b82f6);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--border-color, #e2e8f0);
+}
+
+.nav-btn {
+  font-size: 1rem;
+}
+
+.page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 34px;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .pagination-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+}
+

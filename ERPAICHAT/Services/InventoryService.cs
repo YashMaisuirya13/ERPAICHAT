@@ -4,6 +4,7 @@ using InventoryService.Repositories.Interfaces;
 using InventoryService.Services.Interfaces;
 using Shared.Events.Events;
 using Shared.Events.Messaging;
+using Shared.Events.Models;
 
 namespace InventoryService.Services;
 
@@ -27,6 +28,23 @@ public class InventoryService : IInventoryService
     {
         var inventoryItems = await _inventoryRepository.GetAllAsync();
         return inventoryItems.Select(MapToResponse).ToList();
+    }
+
+    public async Task<PagedResult<InventoryResponse>> GetPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        string? warehouseCode = null,
+        bool? lowStockOnly = null)
+    {
+        var pagedItems = await _inventoryRepository.GetPagedAsync(page, pageSize, search, warehouseCode, lowStockOnly);
+        return new PagedResult<InventoryResponse>
+        {
+            Items = pagedItems.Items.Select(MapToResponse).ToList(),
+            TotalCount = pagedItems.TotalCount,
+            PageNumber = pagedItems.PageNumber,
+            PageSize = pagedItems.PageSize
+        };
     }
 
     public async Task<List<InventoryResponse>> GetByProductIdAsync(int productId)

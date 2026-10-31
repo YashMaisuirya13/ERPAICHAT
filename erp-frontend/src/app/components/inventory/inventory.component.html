@@ -206,6 +206,16 @@
     </div>
   </div>
 
+  <!-- Pagination Component -->
+  <app-pagination
+    *ngIf="!isLoading && totalCount > 0"
+    [totalCount]="totalCount"
+    [pageNumber]="currentPage"
+    [pageSize]="pageSize"
+    (pageChange)="onPageChange($event)"
+    (pageSizeChange)="onPageSizeChange($event)">
+  </app-pagination>
+
   <!-- STOCK IN / STOCK OUT MODAL -->
   <div *ngIf="isModalOpen" class="modal-backdrop" (click)="closeStockModal()">
     <div class="modal-dialog" (click)="$event.stopPropagation()">

@@ -1,9 +1,12 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ErpService } from '../../services/erp.service';
 import { AuthService } from '../../services/auth.service';
+import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 export interface PurchaseOrderItem {
   id?: number;
@@ -20,11 +23,11 @@ export interface PurchaseOrderItem {
 @Component({
   selector: 'app-purchase-orders',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PaginationComponent],
   templateUrl: './purchase-orders.component.html',
   styleUrls: ['./purchase-orders.component.css']
 })
-export class PurchaseOrdersComponent implements OnInit {
+export class PurchaseOrdersComponent implements OnInit, OnDestroy {
   purchaseOrders: PurchaseOrderItem[] = [];
   filteredPOs: PurchaseOrderItem[] = [];
   suppliers: any[] = [];
@@ -34,6 +37,14 @@ export class PurchaseOrdersComponent implements OnInit {
   searchTerm = '';
   statusFilter = 'all';
   sortBy = 'date-desc';
+
+  currentPage = 1;
+  pageSize = 25;
+  totalCount = 0;
+  totalPages = 0;
+
+  private searchSubject = new Subject<string>();
+  private searchSub?: Subscription;
 
   isLoading = true;
   isModalOpen = false;
@@ -54,6 +65,15 @@ export class PurchaseOrdersComponent implements OnInit {
 
   ngOnInit() {
     this.userRole = this.authService.getRole() || 'Admin';
+
+    this.searchSub = this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.currentPage = 1;
+      this.loadPurchaseOrders();
+    });
+
     this.loadAllData();
 
     this.route.queryParams.subscribe(params => {
@@ -64,6 +84,10 @@ export class PurchaseOrdersComponent implements OnInit {
         }, 500);
       }
     });
+  }
+
+  ngOnDestroy() {
+    this.searchSub?.unsubscribe();
   }
 
   loadAllData() {
@@ -100,9 +124,29 @@ export class PurchaseOrdersComponent implements OnInit {
   }
 
   loadPurchaseOrders() {
-    this.erpService.getPurchaseOrders().subscribe({
+    this.isLoading = true;
+    const filterStatus = this.statusFilter !== 'all' ? this.statusFilter : undefined;
+
+    this.erpService.getPurchaseOrders(
+      this.currentPage,
+      this.pageSize,
+      this.searchTerm.trim() || undefined,
+      filterStatus
+    ).subscribe({
       next: (res: any) => {
-        const rawItems = this.extractArray(res);
+        let rawItems: any[] = [];
+        if (res && res.items && Array.isArray(res.items)) {
+          rawItems = res.items;
+          this.totalCount = res.totalCount !== undefined ? res.totalCount : rawItems.length;
+          this.totalPages = res.totalPages || Math.ceil(this.totalCount / this.pageSize);
+        } else {
+          const allItems = this.extractArray(res);
+          this.totalCount = res?.totalCount || allItems.length;
+          this.totalPages = Math.ceil(this.totalCount / this.pageSize);
+
+          const startIndex = (this.currentPage - 1) * this.pageSize;
+          rawItems = allItems.length > this.pageSize ? allItems.slice(startIndex, startIndex + this.pageSize) : allItems;
+        }
 
         this.purchaseOrders = rawItems.map((po: any) => {
           const rawSupplierGuid = po.supplierGuid || po.SupplierGuid || po.supplierId || po.SupplierId;
@@ -145,24 +189,6 @@ export class PurchaseOrdersComponent implements OnInit {
   applyFilters() {
     let list = [...this.purchaseOrders];
 
-    if (this.searchTerm.trim()) {
-      const q = this.searchTerm.toLowerCase().trim();
-      list = list.filter(po =>
-        (po.poNumber && po.poNumber.toLowerCase().includes(q)) ||
-        (po.purchaseOrderGuid && po.purchaseOrderGuid.toLowerCase().includes(q)) ||
-        (po.supplierName && po.supplierName.toLowerCase().includes(q)) ||
-        (po.status && po.status.toLowerCase().includes(q))
-      );
-    }
-
-    if (this.statusFilter !== 'all') {
-      if (this.statusFilter === 'submitted') {
-        list = list.filter(po => (po.status || '').toLowerCase() === 'submitted' || (po.status || '').toLowerCase() === 'pendingapproval');
-      } else {
-        list = list.filter(po => (po.status || '').toLowerCase() === this.statusFilter.toLowerCase());
-      }
-    }
-
     list.sort((a, b) => {
       switch (this.sortBy) {
         case 'amount-desc': return b.totalAmount - a.totalAmount;
@@ -176,17 +202,29 @@ export class PurchaseOrdersComponent implements OnInit {
   }
 
   onSearchChange() {
-    this.applyFilters();
+    this.searchSubject.next(this.searchTerm);
   }
 
   onFilterChange(status: string) {
     this.statusFilter = status;
-    this.applyFilters();
+    this.currentPage = 1;
+    this.loadPurchaseOrders();
   }
 
   onSortChange(event: any) {
     this.sortBy = event.target.value;
     this.applyFilters();
+  }
+
+  onPageChange(page: number) {
+    this.currentPage = page;
+    this.loadPurchaseOrders();
+  }
+
+  onPageSizeChange(size: number) {
+    this.pageSize = size;
+    this.currentPage = 1;
+    this.loadPurchaseOrders();
   }
 
   onProductSelectChange() {
@@ -213,7 +251,6 @@ export class PurchaseOrdersComponent implements OnInit {
       return;
     }
 
-    // Resolve the product's GUID from the selected productId (which may be an int id)
     const selectedProduct = this.products.find(p =>
       (p.productId || p.id) === Number(this.newItem.productId) ||
       p.productGuid === String(this.newItem.productId)
@@ -301,7 +338,7 @@ export class PurchaseOrdersComponent implements OnInit {
 
   // Analytics Helpers
   get totalPOCount(): number {
-    return this.purchaseOrders.length;
+    return this.totalCount || this.purchaseOrders.length;
   }
 
   get pendingApprovalCount(): number {

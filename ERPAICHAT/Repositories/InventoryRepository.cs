@@ -2,6 +2,7 @@ using InventoryService.Data;
 using InventoryService.Models;
 using InventoryService.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Shared.Events.Models;
 
 namespace InventoryService.Repositories;
 
@@ -20,6 +21,56 @@ public class InventoryRepository : IInventoryRepository
             .Include(x => x.Product)
             .AsNoTracking()
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<InventoryItem>> GetPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        string? warehouseCode = null,
+        bool? lowStockOnly = null)
+    {
+        var query = _context.InventoryItems
+            .Include(x => x.Product)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(warehouseCode))
+        {
+            query = query.Where(x => x.WarehouseCode == warehouseCode);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(x =>
+                x.Product.Name.ToLower().Contains(term) ||
+                x.Product.SKU.ToLower().Contains(term) ||
+                x.WarehouseCode.ToLower().Contains(term));
+        }
+
+        if (lowStockOnly == true)
+        {
+            query = query.Where(x => x.Quantity <= x.Product.MinimumStock);
+        }
+
+        var totalCount = await query.CountAsync();
+        var safePage = Math.Max(1, page);
+        var safePageSize = pageSize > 0 ? pageSize : 25;
+
+        var items = await query
+            .OrderBy(x => x.Id)
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync();
+
+        return new PagedResult<InventoryItem>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = safePage,
+            PageSize = safePageSize
+        };
     }
 
     public async Task<InventoryItem?> GetByIdAsync(int id)
@@ -70,10 +121,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task UpdateAsync(InventoryItem inventoryItem)
     {
-        if (_context.Entry(inventoryItem).State == EntityState.Detached)
-        {
-            _context.InventoryItems.Update(inventoryItem);
-        }
+        _context.InventoryItems.Update(inventoryItem);
         await _context.SaveChangesAsync();
     }
 
@@ -87,8 +135,6 @@ public class InventoryRepository : IInventoryRepository
     public async Task<List<StockTransaction>> GetTransactionsAsync()
     {
         return await _context.StockTransactions
-            .Include(x => x.Product)
-            .Include(x => x.InventoryItem)
             .AsNoTracking()
             .OrderByDescending(x => x.TransactionDate)
             .ToListAsync();
@@ -97,8 +143,6 @@ public class InventoryRepository : IInventoryRepository
     public async Task<List<StockTransaction>> GetTransactionsByProductIdAsync(int productId)
     {
         return await _context.StockTransactions
-            .Include(x => x.Product)
-            .Include(x => x.InventoryItem)
             .AsNoTracking()
             .Where(x => x.ProductId == productId)
             .OrderByDescending(x => x.TransactionDate)

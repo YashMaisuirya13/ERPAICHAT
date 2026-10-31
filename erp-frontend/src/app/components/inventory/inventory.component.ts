@@ -1,8 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ErpService } from '../../services/erp.service';
+import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 export interface InventoryItem {
   id?: number;
@@ -19,11 +22,11 @@ export interface InventoryItem {
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PaginationComponent],
   templateUrl: './inventory.component.html',
   styleUrls: ['./inventory.component.css']
 })
-export class InventoryComponent implements OnInit {
+export class InventoryComponent implements OnInit, OnDestroy {
   inventory: InventoryItem[] = [];
   filteredInventory: InventoryItem[] = [];
   products: any[] = [];
@@ -31,6 +34,14 @@ export class InventoryComponent implements OnInit {
   searchTerm = '';
   statusFilter: 'all' | 'low' | 'healthy' = 'all';
   sortBy = 'qty-asc';
+
+  currentPage = 1;
+  pageSize = 25;
+  totalCount = 0;
+  totalPages = 0;
+
+  private searchSubject = new Subject<string>();
+  private searchSub?: Subscription;
 
   isLoading = true;
   isModalOpen = false;
@@ -52,7 +63,19 @@ export class InventoryComponent implements OnInit {
   ) { }
 
   ngOnInit() {
+    this.searchSub = this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.currentPage = 1;
+      this.loadInventory();
+    });
+
     this.loadAllData();
+  }
+
+  ngOnDestroy() {
+    this.searchSub?.unsubscribe();
   }
 
   loadAllData() {
@@ -70,9 +93,30 @@ export class InventoryComponent implements OnInit {
   }
 
   loadInventory() {
-    this.erpService.getInventory().subscribe({
+    this.isLoading = true;
+    const lowStockOnly = this.statusFilter === 'low' ? true : undefined;
+
+    this.erpService.getInventory(
+      this.currentPage,
+      this.pageSize,
+      this.searchTerm.trim() || undefined,
+      undefined,
+      lowStockOnly
+    ).subscribe({
       next: (res: any) => {
-        const rawItems = this.extractArray(res);
+        let rawItems: any[] = [];
+        if (res && res.items && Array.isArray(res.items)) {
+          rawItems = res.items;
+          this.totalCount = res.totalCount !== undefined ? res.totalCount : rawItems.length;
+          this.totalPages = res.totalPages || Math.ceil(this.totalCount / this.pageSize);
+        } else {
+          const allItems = this.extractArray(res);
+          this.totalCount = res?.totalCount || allItems.length;
+          this.totalPages = Math.ceil(this.totalCount / this.pageSize);
+
+          const startIndex = (this.currentPage - 1) * this.pageSize;
+          rawItems = allItems.length > this.pageSize ? allItems.slice(startIndex, startIndex + this.pageSize) : allItems;
+        }
 
         this.inventory = rawItems.map((item: any) => {
           const prod = this.products.find(p =>
@@ -117,18 +161,7 @@ export class InventoryComponent implements OnInit {
   applyFilters() {
     let list = [...this.inventory];
 
-    if (this.searchTerm.trim()) {
-      const q = this.searchTerm.toLowerCase().trim();
-      list = list.filter(item =>
-        item.productName?.toLowerCase().includes(q) ||
-        item.sku?.toLowerCase().includes(q) ||
-        (item.productId !== undefined && item.productId !== null && item.productId.toString().includes(q))
-      );
-    }
-
-    if (this.statusFilter === 'low') {
-      list = list.filter(item => item.quantityAvailable <= item.reorderLevel);
-    } else if (this.statusFilter === 'healthy') {
+    if (this.statusFilter === 'healthy') {
       list = list.filter(item => item.quantityAvailable > item.reorderLevel);
     }
 
@@ -146,17 +179,29 @@ export class InventoryComponent implements OnInit {
   }
 
   onSearchChange() {
-    this.applyFilters();
+    this.searchSubject.next(this.searchTerm);
   }
 
   onFilterChange(status: 'all' | 'low' | 'healthy') {
     this.statusFilter = status;
-    this.applyFilters();
+    this.currentPage = 1;
+    this.loadInventory();
   }
 
   onSortChange(event: any) {
     this.sortBy = event.target.value;
     this.applyFilters();
+  }
+
+  onPageChange(page: number) {
+    this.currentPage = page;
+    this.loadInventory();
+  }
+
+  onPageSizeChange(size: number) {
+    this.pageSize = size;
+    this.currentPage = 1;
+    this.loadInventory();
   }
 
   openStockModal(defaultProductId?: number) {
@@ -257,7 +302,7 @@ export class InventoryComponent implements OnInit {
   }
 
   get totalItemsTracked(): number {
-    return this.inventory.length;
+    return this.totalCount || this.inventory.length;
   }
 
   getSelectedProduct(): any {

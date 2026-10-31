@@ -1,8 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ErpService } from '../../services/erp.service';
+import { PaginationComponent } from '../shared/pagination/pagination.component';
 
 export interface ProductItem {
   id?: number;
@@ -19,11 +22,11 @@ export interface ProductItem {
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PaginationComponent],
   templateUrl: './products.component.html',
   styleUrls: ['./products.component.css']
 })
-export class ProductsComponent implements OnInit {
+export class ProductsComponent implements OnInit, OnDestroy {
   products: ProductItem[] = [];
   filteredProducts: ProductItem[] = [];
 
@@ -31,6 +34,14 @@ export class ProductsComponent implements OnInit {
   selectedCategory = 'all';
   sortBy = 'name-asc';
   viewMode: 'grid' | 'table' = 'grid';
+
+  currentPage = 1;
+  pageSize = 25;
+  totalCount = 0;
+  totalPages = 0;
+
+  private searchSubject = new Subject<string>();
+  private searchSub?: Subscription;
 
   isModalOpen = false;
   isLoading = true;
@@ -52,23 +63,40 @@ export class ProductsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.searchSub = this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.currentPage = 1;
+      this.loadProducts();
+    });
+
     this.loadProducts();
+  }
+
+  ngOnDestroy() {
+    this.searchSub?.unsubscribe();
   }
 
   loadProducts() {
     this.isLoading = true;
-    this.erpService.getProducts().subscribe({
+    this.erpService.getProducts(this.currentPage, this.pageSize, this.searchTerm.trim() || undefined).subscribe({
       next: (res: any) => {
         let items: any[] = [];
-        if (Array.isArray(res)) {
-          items = [...res];
-        } else if (res?.data && Array.isArray(res.data)) {
-          items = [...res.data];
-        } else if (res?.items && Array.isArray(res.items)) {
-          items = [...res.items];
-        } else if (res && typeof res === 'object') {
-          const possibleArray = Object.values(res).find(val => Array.isArray(val));
-          items = possibleArray ? [...(possibleArray as any[])] : [];
+        if (res && res.items && Array.isArray(res.items)) {
+          items = res.items;
+          this.totalCount = res.totalCount !== undefined ? res.totalCount : items.length;
+          this.totalPages = res.totalPages || Math.ceil(this.totalCount / this.pageSize);
+        } else {
+          const allItems: any[] = Array.isArray(res)
+            ? res
+            : (res?.data && Array.isArray(res.data) ? res.data : (Object.values(res || {}).find(v => Array.isArray(v)) as any[] || []));
+
+          this.totalCount = res?.totalCount || allItems.length;
+          this.totalPages = Math.ceil(this.totalCount / this.pageSize);
+
+          const startIndex = (this.currentPage - 1) * this.pageSize;
+          items = allItems.length > this.pageSize ? allItems.slice(startIndex, startIndex + this.pageSize) : allItems;
         }
 
         this.products = items.map(p => ({
@@ -100,17 +128,7 @@ export class ProductsComponent implements OnInit {
   applyFilters() {
     let result = [...this.products];
 
-    // Search filter
-    if (this.searchTerm.trim()) {
-      const q = this.searchTerm.toLowerCase().trim();
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        (p.productGuid && p.productGuid.toLowerCase().includes(q))
-      );
-    }
-
-    // Category filter
+    // Category filter (client-side for category pills)
     if (this.selectedCategory !== 'all') {
       result = result.filter(p => p.category === this.selectedCategory);
     }
@@ -139,7 +157,7 @@ export class ProductsComponent implements OnInit {
   }
 
   onSearchChange() {
-    this.applyFilters();
+    this.searchSubject.next(this.searchTerm);
   }
 
   onCategoryChange(cat: string) {
@@ -150,6 +168,17 @@ export class ProductsComponent implements OnInit {
   onSortChange(event: any) {
     this.sortBy = event.target.value;
     this.applyFilters();
+  }
+
+  onPageChange(page: number) {
+    this.currentPage = page;
+    this.loadProducts();
+  }
+
+  onPageSizeChange(size: number) {
+    this.pageSize = size;
+    this.currentPage = 1;
+    this.loadProducts();
   }
 
   openCreateModal() {
@@ -205,7 +234,6 @@ export class ProductsComponent implements OnInit {
   }
 
   askCopilotAboutProduct(product: ProductItem) {
-    // Navigate to AI Assistant with context
     this.router.navigate(['/ai-assistant'], {
       queryParams: { prompt: `Check inventory and warehouse stock for product ${product.name} (SKU: ${product.sku})` }
     });
@@ -213,7 +241,7 @@ export class ProductsComponent implements OnInit {
 
   // Analytics Helpers
   get totalProducts(): number {
-    return this.products.length;
+    return this.totalCount || this.products.length;
   }
 
   get averagePrice(): number {

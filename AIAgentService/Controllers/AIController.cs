@@ -135,6 +135,97 @@ public class AIController : ControllerBase
         }
     }
 
+    [HttpPost("chat/stream")]
+    public async Task StreamChat([FromBody] ChatRequest request)
+    {
+        Response.ContentType = "text/event-stream";
+        Response.Headers["Cache-Control"] = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no";
+
+        if (string.IsNullOrWhiteSpace(request?.Prompt))
+        {
+            var errJson = System.Text.Json.JsonSerializer.Serialize(new { type = "error", message = "Prompt is required." });
+            await Response.WriteAsync($"data: {errJson}\n\n");
+            await Response.Body.FlushAsync();
+            return;
+        }
+
+        string? userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.Identity?.Name;
+        var conversation = await _chatHistoryService.GetOrCreateConversationAsync(request.ConversationGuid, request.Prompt, userId);
+        var recentHistory = await _chatHistoryService.GetRecentMessagesAsync(conversation.Id, 10);
+        await _chatHistoryService.SaveMessageAsync(conversation.Id, "user", request.Prompt, null, null);
+
+        var startJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            type = "start",
+            conversationGuid = conversation.ConversationGuid,
+            source = _aiService.ProviderName
+        });
+        await Response.WriteAsync($"data: {startJson}\n\n");
+        await Response.Body.FlushAsync();
+
+        string finalResponse = "";
+        string? toolCalled = null;
+        object? toolResult = null;
+        string sourceName = _aiService.ProviderName;
+
+        try
+        {
+            var result = await _aiService.ExecuteChatAgentAsync(request.Prompt, recentHistory);
+            finalResponse = result.Response;
+            toolCalled = result.ToolCalled;
+            toolResult = result.ToolResult;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("[AIController] AI Provider call failed for stream: {Message}. Falling back to local tools.", ex.Message);
+            var (fallbackExplanation, fallbackData, fallbackTool) = await ExecuteLocalERPToolsAsync(request.Prompt);
+            finalResponse = fallbackExplanation;
+            toolCalled = fallbackTool;
+            toolResult = fallbackData;
+            sourceName = "Local-ERP-Tools-Fallback";
+        }
+
+        if (!string.IsNullOrEmpty(toolCalled) && toolCalled != "none")
+        {
+            var toolJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                type = "tool",
+                toolCalled,
+                result = toolResult
+            });
+            await Response.WriteAsync($"data: {toolJson}\n\n");
+            await Response.Body.FlushAsync();
+        }
+
+        // Stream text in words / tokens with short delay for smooth real-time typing UX
+        var words = finalResponse.Split(' ');
+        for (int i = 0; i < words.Length; i++)
+        {
+            var chunk = (i == 0 ? "" : " ") + words[i];
+            var chunkJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                type = "content",
+                content = chunk
+            });
+            await Response.WriteAsync($"data: {chunkJson}\n\n");
+            await Response.Body.FlushAsync();
+            await Task.Delay(20);
+        }
+
+        await _chatHistoryService.SaveMessageAsync(conversation.Id, "ai", finalResponse, toolCalled, toolResult);
+
+        var doneJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            type = "done",
+            conversationGuid = conversation.ConversationGuid,
+            source = sourceName,
+            fullText = finalResponse
+        });
+        await Response.WriteAsync($"data: {doneJson}\n\n");
+        await Response.Body.FlushAsync();
+    }
+
     private async Task<(string Explanation, object DataResult, string ToolCalled)> ExecuteLocalERPToolsAsync(string userPrompt)
     {
         var prompt = userPrompt.ToLowerInvariant();

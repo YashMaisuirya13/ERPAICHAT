@@ -173,66 +173,129 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.shouldScroll = true;
     this.cdr.detectChanges();
 
-    this.erpService.askAi(text, this.activeConversationGuid || undefined).subscribe({
-      next: (res: any) => {
-        this.isLoading = false;
+    let aiMessage: ChatMessage | null = null;
 
-        if (res?.conversationGuid) {
-          this.activeConversationGuid = res.conversationGuid;
-          this.loadConversations();
-        }
-
-        let rawResponse = '';
-        if (typeof res?.response === 'string') {
-          rawResponse = res.response;
-        } else if (typeof res?.data?.response === 'string') {
-          rawResponse = res.data.response;
-        } else if (typeof res?.data === 'string') {
-          rawResponse = res.data;
-        } else if (res?.message) {
-          rawResponse = res.message;
-        } else {
-          rawResponse = 'I have successfully processed your request.';
-        }
-
-        // Clean up accidental raw upstream JSON error payloads
-        if (rawResponse.startsWith('{') && rawResponse.includes('"error"')) {
-          try {
-            const parsed = JSON.parse(rawResponse);
-            if (parsed?.error?.message) {
-              rawResponse = `⚠️ **Upstream Provider Notice:** ${parsed.error.message}\n\nFalling back to local ERP tools verification.`;
-            }
-          } catch {
-            // Keep original raw response if parse fails
+    this.erpService.askAiStream(text, this.activeConversationGuid || undefined).subscribe({
+      next: (event: any) => {
+        if (event.type === 'start') {
+          if (event.conversationGuid) {
+            this.activeConversationGuid = event.conversationGuid;
+            this.loadConversations();
           }
+          if (event.source) {
+            this.activeProvider = event.source;
+          }
+        } else if (event.type === 'tool') {
+          if (!aiMessage) {
+            this.isLoading = false;
+            aiMessage = {
+              id: 'ai-' + Date.now(),
+              sender: 'ai',
+              text: '',
+              formattedHtml: this.sanitizer.bypassSecurityTrustHtml(''),
+              timestamp: new Date(),
+              source: this.activeProvider,
+              toolCalled: event.toolCalled,
+              dataResult: event.result
+            };
+            this.messages.push(aiMessage);
+          } else {
+            aiMessage.toolCalled = event.toolCalled;
+            aiMessage.dataResult = event.result;
+          }
+          this.shouldScroll = true;
+          this.cdr.detectChanges();
+        } else if (event.type === 'content') {
+          if (!aiMessage) {
+            this.isLoading = false;
+            aiMessage = {
+              id: 'ai-' + Date.now(),
+              sender: 'ai',
+              text: '',
+              formattedHtml: this.sanitizer.bypassSecurityTrustHtml(''),
+              timestamp: new Date(),
+              source: this.activeProvider
+            };
+            this.messages.push(aiMessage);
+          }
+          this.isLoading = false;
+          aiMessage.text += event.content;
+          aiMessage.formattedHtml = this.formatMarkdown(aiMessage.text);
+          this.shouldScroll = true;
+          this.cdr.detectChanges();
+        } else if (event.type === 'done') {
+          this.isLoading = false;
+          if (event.conversationGuid) {
+            this.activeConversationGuid = event.conversationGuid;
+            this.loadConversations();
+          }
+          if (aiMessage) {
+            if (event.source) {
+              aiMessage.source = event.source;
+            }
+            if (event.fullText && !aiMessage.text) {
+              aiMessage.text = event.fullText;
+            }
+            aiMessage.formattedHtml = this.formatMarkdown(aiMessage.text);
+          } else if (event.fullText) {
+            this.addAiMessage(event.fullText, event.source);
+          }
+          this.shouldScroll = true;
+          this.cdr.detectChanges();
         }
-
-        const source = res?.source || (res?.data?.toolCalled ? 'Local ERP Tools' : 'NVIDIA Nemotron');
-        const toolCalled = res?.data?.toolCalled;
-        const diagnosticNotice = res?.data?.diagnosticNotice;
-        const dataResult = res?.data?.result;
-
-        this.addAiMessage(rawResponse, source, toolCalled, diagnosticNotice, dataResult);
-        this.shouldScroll = true;
-        this.cdr.detectChanges();
       },
       error: (err) => {
-        this.isLoading = false;
-        console.error('AI Copilot request error:', err);
+        console.warn('Streaming failed, executing fallback standard askAi:', err);
+        this.erpService.askAi(text, this.activeConversationGuid || undefined).subscribe({
+          next: (res: any) => {
+            this.isLoading = false;
 
-        const errorMsg = err?.error?.message || err?.message || 'Failed to reach AIAgentService on port 5048.';
-        this.messages.push({
-          id: 'err-' + Date.now(),
-          sender: 'ai',
-          text: `⚠️ **Connection Error**: ${errorMsg}\n\nPlease verify that **AIAgentService** is running and ApiGateway is accessible.`,
-          formattedHtml: this.formatMarkdown(`⚠️ **Connection Error**: ${errorMsg}\n\nPlease verify that **AIAgentService** is running and ApiGateway is accessible.`),
-          timestamp: new Date(),
-          source: 'Error Handler',
-          isError: true
+            if (res?.conversationGuid) {
+              this.activeConversationGuid = res.conversationGuid;
+              this.loadConversations();
+            }
+
+            let rawResponse = '';
+            if (typeof res?.response === 'string') {
+              rawResponse = res.response;
+            } else if (typeof res?.data?.response === 'string') {
+              rawResponse = res.data.response;
+            } else if (typeof res?.data === 'string') {
+              rawResponse = res.data;
+            } else if (res?.message) {
+              rawResponse = res.message;
+            } else {
+              rawResponse = 'I have successfully processed your request.';
+            }
+
+            const source = res?.source || (res?.data?.toolCalled ? 'Local ERP Tools' : 'NVIDIA Nemotron');
+            const toolCalled = res?.data?.toolCalled;
+            const diagnosticNotice = res?.data?.diagnosticNotice;
+            const dataResult = res?.data?.result;
+
+            this.addAiMessage(rawResponse, source, toolCalled, diagnosticNotice, dataResult);
+            this.shouldScroll = true;
+            this.cdr.detectChanges();
+          },
+          error: (fallbackErr) => {
+            this.isLoading = false;
+            console.error('AI Copilot request error:', fallbackErr);
+
+            const errorMsg = fallbackErr?.error?.message || fallbackErr?.message || 'Failed to reach AIAgentService.';
+            this.messages.push({
+              id: 'err-' + Date.now(),
+              sender: 'ai',
+              text: `⚠️ **Connection Error**: ${errorMsg}\n\nPlease verify that **AIAgentService** is running and ApiGateway is accessible.`,
+              formattedHtml: this.formatMarkdown(`⚠️ **Connection Error**: ${errorMsg}\n\nPlease verify that **AIAgentService** is running and ApiGateway is accessible.`),
+              timestamp: new Date(),
+              source: 'Error Handler',
+              isError: true
+            });
+
+            this.shouldScroll = true;
+            this.cdr.detectChanges();
+          }
         });
-
-        this.shouldScroll = true;
-        this.cdr.detectChanges();
       }
     });
   }

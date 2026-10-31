@@ -1,10 +1,12 @@
 using ProcurementService.DTOs.PurchaseOrders;
+using Shared.Events.Models;
 
 namespace ProcurementService.Services.Interfaces;
 
 public interface IPurchaseOrderService
 {
     Task<List<PurchaseOrderResponse>> GetAllAsync();
+    Task<PagedResult<PurchaseOrderResponse>> GetPagedAsync(int page, int pageSize, string? search = null, string? status = null);
     Task<PurchaseOrderResponse?> GetByGuidAsync(Guid guid);
     Task<PurchaseOrderResponse> CreateAsync(CreatePurchaseOrderRequest request);
     Task<PurchaseOrderResponse?> UpdateAsync(Guid guid, UpdatePurchaseOrderRequest request);

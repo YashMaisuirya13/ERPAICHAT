@@ -2,6 +2,7 @@ using InventoryService.DTOs.Products;
 using InventoryService.Models;
 using InventoryService.Repositories.Interfaces;
 using InventoryService.Services.Interfaces;
+using Shared.Events.Models;
 
 namespace InventoryService.Services;
 
@@ -18,6 +19,18 @@ public class ProductService : IProductService
     {
         var products = await _productRepository.GetAllAsync();
         return products.Select(MapToResponse).ToList();
+    }
+
+    public async Task<PagedResult<ProductResponse>> GetPagedAsync(int page, int pageSize, string? search = null)
+    {
+        var pagedProducts = await _productRepository.GetPagedAsync(page, pageSize, search);
+        return new PagedResult<ProductResponse>
+        {
+            Items = pagedProducts.Items.Select(MapToResponse).ToList(),
+            TotalCount = pagedProducts.TotalCount,
+            PageNumber = pagedProducts.PageNumber,
+            PageSize = pagedProducts.PageSize
+        };
     }
 
     public async Task<ProductResponse?> GetByGuidAsync(Guid guid)

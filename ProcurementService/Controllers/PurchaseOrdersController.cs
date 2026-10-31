@@ -20,8 +20,18 @@ public class PurchaseOrdersController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = "Admin,Procurement,Manager")]
-    public async Task<ActionResult<List<PurchaseOrderResponse>>> GetAll()
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null)
     {
+        if (pageSize > 0)
+        {
+            var paged = await _service.GetPagedAsync(page, pageSize, search, status);
+            return Ok(paged);
+        }
+
         var orders = await _service.GetAllAsync();
         return Ok(orders);
     }

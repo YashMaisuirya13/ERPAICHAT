@@ -19,8 +19,19 @@ public class InventoryController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = "Admin,Procurement,Manager")]
-    public async Task<ActionResult<List<InventoryResponse>>> GetAll()
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? search = null,
+        [FromQuery] string? warehouseCode = null,
+        [FromQuery] bool? lowStockOnly = null)
     {
+        if (pageSize > 0)
+        {
+            var paged = await _inventoryService.GetPagedAsync(page, pageSize, search, warehouseCode, lowStockOnly);
+            return Ok(paged);
+        }
+
         var inventory = await _inventoryService.GetAllAsync();
         return Ok(inventory);
     }

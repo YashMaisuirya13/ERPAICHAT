@@ -2,6 +2,7 @@ using InventoryService.Data;
 using InventoryService.Models;
 using InventoryService.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Shared.Events.Models;
 
 namespace InventoryService.Repositories;
 
@@ -19,6 +20,36 @@ public class ProductRepository : IProductRepository
         return await _context.Products
             .AsNoTracking()
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<Product>> GetPagedAsync(int page, int pageSize, string? search = null)
+    {
+        var query = _context.Products.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(term) || p.SKU.ToLower().Contains(term));
+        }
+
+        var totalCount = await query.CountAsync();
+
+        var safePage = Math.Max(1, page);
+        var safePageSize = pageSize > 0 ? pageSize : 25;
+
+        var items = await query
+            .OrderBy(p => p.Id)
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync();
+
+        return new PagedResult<Product>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = safePage,
+            PageSize = safePageSize
+        };
     }
 
     public async Task<Product?> GetByIdAsync(int id)

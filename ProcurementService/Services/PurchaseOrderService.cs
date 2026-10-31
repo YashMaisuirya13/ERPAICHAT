@@ -34,6 +34,18 @@ public class PurchaseOrderService : IPurchaseOrderService
         return orders.Select(MapToResponse).ToList();
     }
 
+    public async Task<PagedResult<PurchaseOrderResponse>> GetPagedAsync(int page, int pageSize, string? search = null, string? status = null)
+    {
+        var pagedOrders = await _repository.GetPagedAsync(page, pageSize, search, status);
+        return new PagedResult<PurchaseOrderResponse>
+        {
+            Items = pagedOrders.Items.Select(MapToResponse).ToList(),
+            TotalCount = pagedOrders.TotalCount,
+            PageNumber = pagedOrders.PageNumber,
+            PageSize = pagedOrders.PageSize
+        };
+    }
+
     public async Task<PurchaseOrderResponse?> GetByGuidAsync(Guid guid)
     {
         var order = await _repository.GetByGuidAsync(guid);
