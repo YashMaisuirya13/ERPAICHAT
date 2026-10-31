@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -119,13 +119,14 @@ public class UnifiedAIService : IAIService
         {
             role = "system",
             content = "You are an intelligent ERP AI Assistant for enterprise resource planning (inventory, suppliers, procurement). " +
-                      "You have access to database tools. When the user asks for specific ERP data, inventory, suppliers, purchase orders, creating new products, onboarding new suppliers, or updating warehouse stock levels, invoke the appropriate tools. " +
-                      "You can create new products in the catalog using create_product, register new vendor suppliers using create_supplier, and record warehouse stock movements using stock_in and stock_out when requested. " +
-                      "If a request requires multiple steps (for example: finding low stock items, then finding or registering suppliers, and then creating a purchase order), " +
-                      "you can invoke tools sequentially: inspect the intermediate tool output from earlier turns, and invoke the next required tool. " +
-                      "You also have access to the recent conversation history in this thread. Use prior context (e.g. products, suppliers, or PO numbers discussed earlier) to resolve references like 'it', 'them', or 'that supplier'. " +
-                      "Once all required operations are complete, present a clear, professional summary to the user. " +
-                      "For casual greetings or conversational questions, respond directly in plain text without invoking any tools."
+                      "You have direct access to database tools. When the user asks for specific ERP data, inventory, suppliers, purchase orders, creating new products, onboarding new suppliers, or updating warehouse stock levels, invoke the appropriate tools. " +
+                      "IMPORTANT - MULTI-STEP WORKFLOWS: When a user prompt requests multiple actions (for example: 'Find products below safety stock, identify active suppliers, and prepare a purchase order for 20 laptops'), you MUST NOT stop after the first step. " +
+                      "1. First, invoke get_low_stock_alerts (passing searchTerm like 'laptop' if a specific product category is mentioned) or get_inventory. " +
+                      "2. Second, invoke get_suppliers to identify active verified vendors capable of fulfilling the order. " +
+                      "3. Third, invoke create_purchase_order with the product name, quantity, and selected supplier to create and submit the order. " +
+                      "Execute these tools sequentially across turns until ALL requested operations are fully accomplished. " +
+                      "Once all required operations are complete, present a clear, professional summary to the user detailing: (a) what was found, (b) which supplier was selected, and (c) the generated Purchase Order details. " +
+                      "Do not print raw internal reasoning (like 'The user wants me to...'). Output only clean, executive-level summaries."
         };
 
         var userMessage = new
@@ -287,8 +288,20 @@ public class UnifiedAIService : IAIService
         string finalResponse;
         if (!string.IsNullOrWhiteSpace(finalAssistantContent) && !finalAssistantContent.StartsWith("[{") && !finalAssistantContent.StartsWith("```json"))
         {
-            // If LLM produced a synthesized narrative, present the narrative along with the rich ERP tables
-            finalResponse = $"{finalAssistantContent}\n\n---\n\n" + string.Join("\n\n---\n\n", formattedMarkdownSnippets);
+            var relevantSnippets = formattedMarkdownSnippets.Where(s =>
+                s.Contains("Purchase Order") ||
+                s.Contains("Stock Adjustment") ||
+                s.Contains("Product Created") ||
+                s.Contains("Supplier Registered")).ToList();
+
+            if (relevantSnippets.Count > 0)
+            {
+                finalResponse = $"{finalAssistantContent}\n\n---\n\n" + string.Join("\n\n---\n\n", relevantSnippets);
+            }
+            else
+            {
+                finalResponse = $"{finalAssistantContent}\n\n---\n\n" + string.Join("\n\n---\n\n", formattedMarkdownSnippets.Take(2));
+            }
         }
         else
         {
@@ -302,8 +315,6 @@ public class UnifiedAIService : IAIService
             ToolResult = combinedDataResult
         };
     }
-
-
 
     private async Task<string> SendOpenAiCompatibleRequestAsync(string endpoint, string apiKey, object requestBody)
     {

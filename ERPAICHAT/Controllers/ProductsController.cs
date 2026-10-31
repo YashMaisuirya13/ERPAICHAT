@@ -26,12 +26,12 @@ public class ProductsController : ControllerBase
     [Authorize(Roles = "Admin,Procurement,Manager")]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 25,
+        [FromQuery] int? pageSize = null,
         [FromQuery] string? search = null)
     {
-        if (pageSize > 0)
+        if (pageSize.HasValue && pageSize.Value > 0)
         {
-            var paged = await _productService.GetPagedAsync(page, pageSize, search);
+            var paged = await _productService.GetPagedAsync(page, pageSize.Value, search);
             return Ok(paged);
         }
 

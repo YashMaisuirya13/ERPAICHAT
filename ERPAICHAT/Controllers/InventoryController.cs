@@ -21,14 +21,14 @@ public class InventoryController : ControllerBase
     [Authorize(Roles = "Admin,Procurement,Manager")]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 25,
+        [FromQuery] int? pageSize = null,
         [FromQuery] string? search = null,
         [FromQuery] string? warehouseCode = null,
         [FromQuery] bool? lowStockOnly = null)
     {
-        if (pageSize > 0)
+        if (pageSize.HasValue && pageSize.Value > 0)
         {
-            var paged = await _inventoryService.GetPagedAsync(page, pageSize, search, warehouseCode, lowStockOnly);
+            var paged = await _inventoryService.GetPagedAsync(page, pageSize.Value, search, warehouseCode, lowStockOnly);
             return Ok(paged);
         }
 

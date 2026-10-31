@@ -22,13 +22,13 @@ public class PurchaseOrdersController : ControllerBase
     [Authorize(Roles = "Admin,Procurement,Manager")]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 25,
+        [FromQuery] int? pageSize = null,
         [FromQuery] string? search = null,
         [FromQuery] string? status = null)
     {
-        if (pageSize > 0)
+        if (pageSize.HasValue && pageSize.Value > 0)
         {
-            var paged = await _service.GetPagedAsync(page, pageSize, search, status);
+            var paged = await _service.GetPagedAsync(page, pageSize.Value, search, status);
             return Ok(paged);
         }
 

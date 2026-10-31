@@ -59,11 +59,23 @@ public class ERPToolRegistry : IERPToolRegistry
                 function = new
                 {
                     name = "get_low_stock_alerts",
-                    description = "Get products currently at or below safety reorder threshold.",
+                    description = "Get products currently at or below safety reorder threshold. Pass optional searchTerm (e.g. 'laptop', 'monitor') to filter specific items.",
                     parameters = new
                     {
                         type = "object",
-                        properties = new { }
+                        properties = new
+                        {
+                            searchTerm = new
+                            {
+                                type = "string",
+                                description = "Optional keyword to filter low stock items by product name or SKU (e.g. 'laptop', 'thinkpad', 'dell', 'switch'). Omit to retrieve top urgent low stock items."
+                            },
+                            limit = new
+                            {
+                                type = "integer",
+                                description = "Maximum number of items to return (default 20, max 50)."
+                            }
+                        }
                     }
                 }
             },
@@ -289,17 +301,59 @@ public class ERPToolRegistry : IERPToolRegistry
         {
             case "get_low_stock_alerts":
             {
-                var lowStock = await _erpTools.GetLowStockProductsAsync();
-                var result = lowStock.Select(i => new
+                string? searchTerm = null;
+                int limit = 20;
+
+                if (root.HasValue)
                 {
-                    productName = i.ProductName,
-                    sku = i.SKU,
-                    availableQuantity = i.Quantity,
-                    warehouse = i.WarehouseCode,
-                    reorderThreshold = i.MinimumStock,
-                    status = "Low Stock Alert"
-                }).ToList();
-                return (JsonSerializer.Serialize(result, s_jsonOptions), result);
+                    if (root.Value.TryGetProperty("searchTerm", out var stProp))
+                        searchTerm = stProp.GetString()?.Trim().ToLowerInvariant();
+                    else if (root.Value.TryGetProperty("keyword", out var kwProp))
+                        searchTerm = kwProp.GetString()?.Trim().ToLowerInvariant();
+                    else if (root.Value.TryGetProperty("productName", out var pnProp))
+                        searchTerm = pnProp.GetString()?.Trim().ToLowerInvariant();
+                    else if (root.Value.TryGetProperty("category", out var catProp))
+                        searchTerm = catProp.GetString()?.Trim().ToLowerInvariant();
+
+                    if (root.Value.TryGetProperty("limit", out var lProp) && lProp.TryGetInt32(out var parsedLimit) && parsedLimit > 0)
+                        limit = Math.Min(parsedLimit, 50);
+                }
+
+                var lowStock = await _erpTools.GetLowStockProductsAsync();
+
+                var filtered = lowStock.AsEnumerable();
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    filtered = filtered.Where(i =>
+                        (i.ProductName != null && i.ProductName.ToLower().Contains(searchTerm)) ||
+                        (i.SKU != null && i.SKU.ToLower().Contains(searchTerm)));
+                }
+
+                var filteredList = filtered.ToList();
+                int totalCount = filteredList.Count;
+
+                var topResults = filteredList
+                    .OrderBy(i => i.Quantity)
+                    .Take(limit)
+                    .Select(i => new
+                    {
+                        productName = i.ProductName,
+                        sku = i.SKU,
+                        availableQuantity = i.Quantity,
+                        warehouse = i.WarehouseCode,
+                        reorderThreshold = i.MinimumStock,
+                        status = "Low Stock Alert"
+                    }).ToList();
+
+                var payload = new
+                {
+                    totalLowStockCount = totalCount,
+                    displayedCount = topResults.Count,
+                    filterTerm = searchTerm,
+                    items = topResults
+                };
+
+                return (JsonSerializer.Serialize(payload, s_jsonOptions), payload);
             }
 
             case "get_inventory":
@@ -498,22 +552,36 @@ public class ERPToolRegistry : IERPToolRegistry
                     if (root.Value.TryGetProperty("supplierName", out var sn)) preferredSupplier = sn.GetString();
                 }
 
-                var products = await _erpTools.GetAllProductsAsync();
-                var targetProduct = products.FirstOrDefault(p => p.Name.ToLower().Contains(productName.ToLower()) || p.SKU.ToLower().Contains(productName.ToLower()))
+                var products = await _erpTools.GetAllProductsAsync(productName);
+                if (products.Count == 0)
+                {
+                    products = await _erpTools.GetAllProductsAsync();
+                }
+
+                var targetProduct = products.FirstOrDefault(p =>
+                    p.Name.ToLower().Contains(productName.ToLower()) ||
+                    p.SKU.ToLower().Contains(productName.ToLower()))
                     ?? products.FirstOrDefault();
+
+                if (targetProduct == null)
+                {
+                    return (JsonSerializer.Serialize(new { error = $"Product '{productName}' could not be found in the catalog." }, s_jsonOptions),
+                        new { error = $"Product '{productName}' not found" });
+                }
 
                 var suppliers = await _erpTools.GetSuppliersAsync();
                 var targetSupplier = !string.IsNullOrWhiteSpace(preferredSupplier)
                     ? suppliers.FirstOrDefault(s => s.Name.ToLower().Contains(preferredSupplier.ToLower()))
-                    : suppliers.FirstOrDefault();
+                    : suppliers.FirstOrDefault(s => s.IsActive);
 
                 if (targetSupplier == null)
                 {
-                    return (JsonSerializer.Serialize(new { error = "No active supplier found in registry to place order." }, s_jsonOptions), new { error = "No active supplier found" });
+                    return (JsonSerializer.Serialize(new { error = "No active supplier found in registry to place order." }, s_jsonOptions),
+                        new { error = "No active supplier found" });
                 }
 
-                Guid productGuid = targetProduct?.ProductGuid ?? Guid.NewGuid();
-                decimal unitPrice = targetProduct?.UnitPrice ?? 1499.00m;
+                Guid productGuid = targetProduct.ProductGuid;
+                decimal unitPrice = targetProduct.UnitPrice > 0 ? targetProduct.UnitPrice : 1299.00m;
 
                 var items = new List<PurchaseOrderItemResultDto>
                 {
@@ -528,7 +596,8 @@ public class ERPToolRegistry : IERPToolRegistry
                 var draftPo = await _erpTools.CreateDraftPurchaseOrderAsync(targetSupplier.SupplierGuid, items);
                 if (draftPo == null)
                 {
-                    return (JsonSerializer.Serialize(new { error = "Failed to create draft purchase order in database." }, s_jsonOptions), new { error = "Failed to create draft purchase order" });
+                    return (JsonSerializer.Serialize(new { error = $"Failed to create draft purchase order for product '{targetProduct.Name}' with supplier '{targetSupplier.Name}'." }, s_jsonOptions),
+                        new { error = "Failed to create draft purchase order" });
                 }
 
                 var submittedPo = await _erpTools.SubmitPurchaseOrderForApprovalAsync(draftPo.PurchaseOrderGuid);

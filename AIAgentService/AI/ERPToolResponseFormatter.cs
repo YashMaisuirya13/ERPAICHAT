@@ -37,22 +37,54 @@ public static class ERPToolResponseFormatter
 
     private static string FormatLowStockAlerts(JsonElement root)
     {
-        if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
+        JsonElement itemsElement = root;
+        int totalCount = 0;
+        string? filterTerm = null;
+
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            if (root.TryGetProperty("items", out var itProp) && itProp.ValueKind == JsonValueKind.Array)
+            {
+                itemsElement = itProp;
+            }
+            if (root.TryGetProperty("totalLowStockCount", out var tcProp))
+            {
+                totalCount = tcProp.GetInt32();
+            }
+            if (root.TryGetProperty("filterTerm", out var ftProp) && ftProp.ValueKind == JsonValueKind.String)
+            {
+                filterTerm = ftProp.GetString();
+            }
+        }
+
+        if (itemsElement.ValueKind != JsonValueKind.Array || itemsElement.GetArrayLength() == 0)
         {
             return "### 🟢 All Stock Levels Healthy\n\nAll inventory products are currently above their minimum safety reorder thresholds. No replenishment is required at this time.";
         }
 
+        int count = itemsElement.GetArrayLength();
+        if (totalCount == 0) totalCount = count;
+
         var sb = new StringBuilder();
-        int count = root.GetArrayLength();
         sb.AppendLine("### ⚠️ Low Stock Inventory Alert");
         sb.AppendLine();
-        sb.AppendLine($"Identified **{count} product{(count > 1 ? "s" : "")}** currently below minimum safety stock levels:");
+        if (!string.IsNullOrWhiteSpace(filterTerm))
+        {
+            sb.AppendLine($"Found **{totalCount} item{(totalCount > 1 ? "s" : "")}** matching `{filterTerm}` below minimum safety stock levels:");
+        }
+        else
+        {
+            sb.AppendLine($"Identified **{totalCount} product{(totalCount > 1 ? "s" : "")}** below minimum safety stock levels:");
+        }
         sb.AppendLine();
         sb.AppendLine("| Product Name | SKU | Available Qty | Warehouse | Safety Min | Status |");
         sb.AppendLine("| :--- | :--- | :---: | :--- | :---: | :--- |");
 
-        foreach (var item in root.EnumerateArray())
+        int displayed = 0;
+        foreach (var item in itemsElement.EnumerateArray())
         {
+            if (displayed >= 15) break;
+
             var name = item.TryGetProperty("productName", out var np) ? np.GetString() ?? "" : "";
             var sku = item.TryGetProperty("sku", out var sp) ? sp.GetString() ?? "" : "";
             var qty = item.TryGetProperty("availableQuantity", out var qp) ? qp.GetInt32().ToString() : "0";
@@ -61,6 +93,13 @@ public static class ERPToolResponseFormatter
             var status = item.TryGetProperty("status", out var stp) ? stp.GetString() ?? "Low Stock Alert" : "Low Stock Alert";
 
             sb.AppendLine($"| {name} | `{sku}` | **{qty}** | {wh} | {min} | ⚠️ {status} |");
+            displayed++;
+        }
+
+        if (totalCount > displayed)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"*... showing top {displayed} of {totalCount} items below safety reorder threshold.*");
         }
 
         sb.AppendLine();
@@ -85,9 +124,12 @@ public static class ERPToolResponseFormatter
         sb.AppendLine("| :--- | :--- | :---: | :---: | :---: | :--- |");
 
         var warehouseBreakdowns = new List<string>();
+        int displayed = 0;
 
         foreach (var item in root.EnumerateArray())
         {
+            if (displayed >= 20) break;
+
             var name = item.TryGetProperty("productName", out var np) ? np.GetString() ?? "" : "";
             var sku = item.TryGetProperty("sku", out var sp) ? sp.GetString() ?? "" : "";
             var price = item.TryGetProperty("unitPrice", out var pp) ? pp.GetDecimal().ToString("C2") : "$0.00";
@@ -108,6 +150,13 @@ public static class ERPToolResponseFormatter
                 }));
                 warehouseBreakdowns.Add($"- **{name}**: {locations}");
             }
+            displayed++;
+        }
+
+        if (count > displayed)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"*... showing top {displayed} of {count} products in catalog.*");
         }
 
         if (warehouseBreakdowns.Count > 0)

@@ -6,7 +6,7 @@ public interface IERPTools
 {
     // Inventory Tools
     Task<List<InventoryItemDto>> GetLowStockProductsAsync();
-    Task<List<ProductItemDto>> GetAllProductsAsync();
+    Task<List<ProductItemDto>> GetAllProductsAsync(string? search = null);
     Task<ProductItemDto?> CreateProductAsync(string sku, string name, decimal unitPrice, int minimumStock);
     Task<List<InventoryItemDto>> GetProductInventoryAsync(int productId);
     Task<InventoryItemDto?> StockInAsync(int productId, int quantity, string warehouseCode, string? referenceNumber = null);

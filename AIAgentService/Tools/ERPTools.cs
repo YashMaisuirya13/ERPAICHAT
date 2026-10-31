@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using AIAgentService.Tools.DTOs;
 using AIAgentService.Tools.Interfaces;
 
@@ -36,13 +37,38 @@ public class ERPTools : IERPTools
         }
     }
 
-    public async Task<List<ProductItemDto>> GetAllProductsAsync()
+    public async Task<List<ProductItemDto>> GetAllProductsAsync(string? search = null)
     {
         try
         {
-            _logger.LogInformation("[Tool Call] Fetching all products from InventoryService...");
-            var result = await _inventoryClient.GetFromJsonAsync<List<ProductItemDto>>("/api/products");
-            return result ?? new List<ProductItemDto>();
+            _logger.LogInformation("[Tool Call] Fetching products from InventoryService (search: '{Search}')...", search ?? "all");
+            var url = string.IsNullOrWhiteSpace(search)
+                ? "/api/products?pageSize=0"
+                : $"/api/products?pageSize=50&search={Uri.EscapeDataString(search)}";
+
+            var response = await _inventoryClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("[Tool Call] InventoryService returned status {StatusCode} for {Url}", response.StatusCode, url);
+                return new List<ProductItemDto>();
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                return JsonSerializer.Deserialize<List<ProductItemDto>>(json, options) ?? new List<ProductItemDto>();
+            }
+
+            if (doc.RootElement.TryGetProperty("items", out var itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+            {
+                return JsonSerializer.Deserialize<List<ProductItemDto>>(itemsElement.GetRawText(), options) ?? new List<ProductItemDto>();
+            }
+
+            return new List<ProductItemDto>();
         }
         catch (Exception ex)
         {
@@ -223,14 +249,13 @@ public class ERPTools : IERPTools
             _logger.LogInformation("[Tool Call] Creating draft Purchase Order for Supplier {SupplierGuid} with {Count} items...", supplierGuid, items.Count);
             var payload = new
             {
-                supplierId = 1,
                 supplierGuid,
                 items = items.Select(i => new
                 {
                     productGuid = i.ProductGuid,
                     quantity = i.Quantity,
                     unitPrice = i.UnitPrice
-                })
+                }).ToList()
             };
 
             var response = await _procurementClient.PostAsJsonAsync("/api/purchaseorders", payload);
